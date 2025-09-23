@@ -11,6 +11,7 @@ This agent demonstrates:
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+import asyncio
 
 from src.core.agent_base import AgentBase, AgentCapability
 from src.core.execution_context import ExecutionContext
@@ -21,6 +22,8 @@ from src.core.workflow_base import (
     SimpleDAGWorkflow,
 )
 from src.tools.llm_tool import ConversationLLMTool
+from src.state_memory.vector_store import get_vector_memory_manager, VectorMemoryManager
+from src.sdk.agents import register_agent
 
 
 class CustomerSupportAgent(AgentBase):
@@ -60,6 +63,9 @@ class CustomerSupportAgent(AgentBase):
         # Initialize LLM tool for conversations
         self.llm_tool = ConversationLLMTool(name="support_llm", **(llm_config or {}))
 
+        # Vector memory for conversation history and knowledge retrieval
+        self.vector_memory = get_vector_memory_manager()
+
         # Knowledge base for FAQ and solutions
         self.knowledge_base = knowledge_base or self._get_default_knowledge_base()
 
@@ -70,16 +76,35 @@ class CustomerSupportAgent(AgentBase):
         # Support ticket tracking
         self.active_tickets: Dict[str, Dict[str, Any]] = {}
         self.ticket_counter = 0
+        
+        # Initialize knowledge base in vector memory
+        asyncio.create_task(self._initialize_knowledge_base())
 
     async def execute(
         self, input_data: Any, context: ExecutionContext
     ) -> Dict[str, Any]:
-        """Execute customer support workflow."""
+        """Execute customer support workflow with vector memory integration."""
         # Parse customer inquiry
         inquiry = self._parse_inquiry(input_data)
 
         # Get or create session for conversation tracking
         session_id = context.session_id or "default"
+        conversation_id = f"support_{session_id}"
+
+        # Store customer inquiry in conversation memory
+        await self._store_conversation_turn(
+            conversation_id=conversation_id,
+            role="user",
+            content=inquiry,
+            metadata={"timestamp": datetime.now().isoformat()}
+        )
+
+        # Get relevant conversation context
+        conversation_context = await self._get_conversation_context(
+            inquiry=inquiry,
+            conversation_id=conversation_id,
+            max_tokens=800
+        )
 
         # Analyze inquiry sentiment and urgency
         analysis = await self._analyze_inquiry(inquiry, context)
@@ -89,14 +114,36 @@ class CustomerSupportAgent(AgentBase):
             analysis["sentiment_score"] < self.escalation_threshold
             or analysis["requires_human"]
         ):
-            return await self._escalate_to_human(inquiry, analysis, context)
+            escalation_result = await self._escalate_to_human(inquiry, analysis, context)
+            
+            # Store escalation in conversation memory
+            await self._store_conversation_turn(
+                conversation_id=conversation_id,
+                role="system",
+                content=f"Escalated to human agent: {escalation_result.get('escalation_reason', 'Unknown')}",
+                metadata={"action": "escalation", "timestamp": datetime.now().isoformat()}
+            )
+            
+            return escalation_result
 
         # Search knowledge base for relevant information
         kb_results = await self._search_knowledge_base(inquiry, context)
 
-        # Generate response using LLM with knowledge base context
+        # Generate response using LLM with knowledge base and conversation context
         response = await self._generate_response(
-            inquiry, kb_results, analysis, session_id, context
+            inquiry, kb_results, analysis, session_id, context, conversation_context
+        )
+
+        # Store agent response in conversation memory
+        await self._store_conversation_turn(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=response,
+            metadata={
+                "timestamp": datetime.now().isoformat(),
+                "kb_matches": len(kb_results),
+                "sentiment_score": analysis["sentiment_score"]
+            }
         )
 
         # Check if issue is resolved or needs follow-up
@@ -115,6 +162,7 @@ class CustomerSupportAgent(AgentBase):
             "ticket_info": ticket_info,
             "requires_human_escalation": analysis["requires_human"],
             "session_id": session_id,
+            "conversation_context_used": len(conversation_context) > 0,
         }
 
     def _parse_inquiry(self, input_data: Any) -> str:
@@ -172,16 +220,135 @@ class CustomerSupportAgent(AgentBase):
             "analysis_timestamp": datetime.utcnow().isoformat(),
         }
 
+    async def _initialize_knowledge_base(self):
+        """Initialize knowledge base articles in vector memory."""
+        try:
+            for category, items in self.knowledge_base.items():
+                for i, item in enumerate(items):
+                    # Create a simple embedding (in practice, use a real embedding model)
+                    text = f"{item['title']} {item['content']}"
+                    embedding = self._create_simple_embedding(text)
+                    
+                    await self.vector_memory.add_text(
+                        text=text,
+                        embedding=embedding,
+                        metadata={
+                            "category": category,
+                            "title": item["title"],
+                            "keywords": item.get("keywords", []),
+                            "type": "knowledge_base"
+                        },
+                        document_id=f"kb_{category}_{i}",
+                        namespace="knowledge_base"
+                    )
+            self.logger.info("Knowledge base initialized in vector memory")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize knowledge base: {e}")
+
+    def _create_simple_embedding(self, text: str) -> List[float]:
+        """Create a simple embedding for text (placeholder implementation)."""
+        # This is a very simple hash-based embedding for demo purposes
+        # In practice, use OpenAI embeddings, sentence-transformers, etc.
+        import hashlib
+        
+        # Create a deterministic embedding based on text content
+        text_hash = hashlib.md5(text.lower().encode()).hexdigest()
+        embedding = []
+        
+        # Create 1536-dimensional embedding (OpenAI embedding size)
+        for i in range(0, 1536):
+            # Use hash characters cyclically to create embedding values
+            char_index = i % len(text_hash)
+            # Convert hex char to float between -1 and 1
+            value = (int(text_hash[char_index], 16) - 7.5) / 7.5
+            embedding.append(value)
+            
+        return embedding
+
+    async def _store_conversation_turn(
+        self, 
+        conversation_id: str, 
+        role: str, 
+        content: str, 
+        metadata: Optional[Dict[str, Any]] = None
+    ):
+        """Store a conversation turn in vector memory."""
+        try:
+            embedding = self._create_simple_embedding(content)
+            await self.vector_memory.add_conversation_turn(
+                conversation_id=conversation_id,
+                role=role,
+                content=content,
+                embedding=embedding,
+                metadata=metadata
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to store conversation turn: {e}")
+
+    async def _get_conversation_context(
+        self, 
+        inquiry: str, 
+        conversation_id: str, 
+        max_tokens: int = 1000
+    ) -> str:
+        """Get relevant conversation context from vector memory."""
+        try:
+            query_embedding = self._create_simple_embedding(inquiry)
+            context = await self.vector_memory.get_conversation_context(
+                query_embedding=query_embedding,
+                conversation_id=conversation_id,
+                max_tokens=max_tokens
+            )
+            return context
+        except Exception as e:
+            self.logger.error(f"Failed to get conversation context: {e}")
+            return ""
+
     async def _search_knowledge_base(
         self, inquiry: str, context: ExecutionContext
     ) -> List[Dict[str, Any]]:
-        """Search knowledge base for relevant information."""
+        """Search knowledge base using vector similarity."""
+        try:
+            # First try vector search
+            query_embedding = self._create_simple_embedding(inquiry)
+            vector_results = await self.vector_memory.search_similar(
+                query_text=inquiry,
+                query_embedding=query_embedding,
+                top_k=5,
+                namespace="knowledge_base",
+                min_score=0.3
+            )
+            
+            matches = []
+            for result in vector_results:
+                metadata = result.document.metadata
+                matches.append({
+                    "category": metadata.get("category", "general"),
+                    "title": metadata.get("title", "Unknown"),
+                    "content": result.document.content,
+                    "relevance_score": result.score,
+                    "source": "vector_search"
+                })
+                
+            # If vector search doesn't find enough results, fall back to keyword search
+            if len(matches) < 2:
+                keyword_matches = await self._fallback_keyword_search(inquiry)
+                matches.extend(keyword_matches)
+                
+            return matches[:3]  # Return top 3 matches
+            
+        except Exception as e:
+            self.logger.error(f"Vector search failed, falling back to keyword search: {e}")
+            return await self._fallback_keyword_search(inquiry)
+
+    async def _fallback_keyword_search(self, inquiry: str) -> List[Dict[str, Any]]:
+        """Fallback keyword-based knowledge base search."""
         inquiry_lower = inquiry.lower()
         matches = []
 
         for category, items in self.knowledge_base.items():
             for item in items:
-                # Simple keyword matching (in practice, use semantic search)
+                # Simple keyword matching
                 keywords = item.get("keywords", [])
                 if any(keyword.lower() in inquiry_lower for keyword in keywords):
                     matches.append(
@@ -192,13 +359,13 @@ class CustomerSupportAgent(AgentBase):
                             "relevance_score": self._calculate_relevance(
                                 inquiry, item["keywords"]
                             ),
+                            "source": "keyword_search"
                         }
                     )
 
         # Sort by relevance score
         matches.sort(key=lambda x: x["relevance_score"], reverse=True)
-
-        return matches[:3]  # Return top 3 matches
+        return matches
 
     def _calculate_relevance(self, inquiry: str, keywords: List[str]) -> float:
         """Calculate relevance score for knowledge base item."""
@@ -213,8 +380,9 @@ class CustomerSupportAgent(AgentBase):
         analysis: Dict[str, Any],
         session_id: str,
         context: ExecutionContext,
+        conversation_context: str = "",
     ) -> str:
-        """Generate response using LLM with knowledge base context."""
+        """Generate response using LLM with knowledge base and conversation context."""
         # Build context for LLM
         kb_context = (
             "\n".join(
@@ -224,14 +392,24 @@ class CustomerSupportAgent(AgentBase):
             else "No specific knowledge base matches found."
         )
 
+        # Include conversation context if available
+        context_section = ""
+        if conversation_context:
+            context_section = f"""
+
+Previous Conversation:
+{conversation_context}
+"""
+
         system_message = f"""You are a helpful customer support agent. Use the following knowledge base information to help answer the customer's question:
 
 Knowledge Base:
-{kb_context}
+{kb_context}{context_section}
 
 Guidelines:
 - Be helpful, polite, and professional
 - Use the knowledge base information when relevant
+- Reference previous conversation context when appropriate
 - If you cannot fully resolve the issue, let them know you can escalate to a human agent
 - Keep responses concise but thorough
 - Show empathy if the customer seems frustrated

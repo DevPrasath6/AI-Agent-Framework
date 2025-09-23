@@ -1,0 +1,76 @@
+name: Bench - OpenVINO
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_path:
+        description: 'Optional model path (artifact or repo path)'
+        required: false
+        default: ''
+  push:
+    branches:
+      - main
+
+jobs:
+  bench:
+    name: OpenVINO Bench Matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        openvino: ["true", "false"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: (Optional) Install OpenVINO on runner
+        if: matrix.openvino == 'true'
+        run: |
+          # Attempt to install OpenVINO runtime via pip wheel (best-effort).
+          pip install openvino
+
+      - name: Run bench
+        env:
+          MODEL_PATH: ${{ github.event.inputs.model_path }}
+        run: |
+          mkdir -p bench_output
+          python bench/openvino_bench.py --runs 40 --out bench_output/result.json ${MODEL_PATH:+--model-path $MODEL_PATH}
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: openvino-bench-${{ matrix.openvino }}
+          path: bench_output
+
+      - name: Aggregate results into CSV
+        run: |
+          python bench/aggregate_results.py --json bench_output/result.json --openvino ${{ matrix.openvino }} --model-path "${{ github.event.inputs.model_path }}" --out bench_output/results.csv
+
+      - name: Commit results to benchmarks branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git checkout --orphan bench-results || true
+          # Ensure we have the repository contents
+          git reset --hard
+          mkdir -p benchmarks
+          cp bench_output/results.csv benchmarks/results.csv
+          git add benchmarks/results.csv
+          # Commit only if changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(bench): append latest benchmark results [skip ci]"
+            git push --force origin HEAD:benchmarks
+          fi

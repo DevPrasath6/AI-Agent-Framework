@@ -58,7 +58,10 @@ async def run_worker(backend: str = "inmemory", bootstrap_servers: str | None = 
 
     async def _consume_one(consumer, handler):
         async for ev in consumer:
-            await handler(ev)
+            try:
+                await handler(ev)
+            except Exception:
+                logger.exception("Handler raised an exception for event: %s", ev)
 
     tasks = [asyncio.create_task(_consume_one(consumer_wf, _handle_workflow_event)), asyncio.create_task(_consume_one(consumer_ag, _handle_agent_event))]
 
