@@ -8,7 +8,7 @@ def run():
     failures = 0
     for mod in MODULES:
         try:
-            m = importlib.import_module(mod)
+            importlib.import_module(mod)
             print(f"Imported {mod}")
         except Exception as e:
             print(f"Failed to import {mod}: {e}")

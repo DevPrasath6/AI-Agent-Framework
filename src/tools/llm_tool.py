@@ -2,12 +2,10 @@
 LLM tool for language model interactions and text generation.
 """
 
-import logging
-import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
-from ..core.tool_base import ToolBase, ToolType, ToolResult
+from ..core.tool_base import ToolBase, ToolType
 from ..core.execution_context import ExecutionContext
 
 

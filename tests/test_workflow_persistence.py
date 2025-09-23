@@ -2,7 +2,6 @@ from django.test import TestCase
 import uuid
 
 from src.orchestrator.celery_tasks import execute_workflow_run
-from src.core.workflow_base import WorkflowDefinition, WorkflowStep, StepType
 from django.apps import apps
 
 
@@ -34,7 +33,7 @@ class WorkflowPersistenceTest(TestCase):
             ],
         }
 
-        result = execute_workflow_run(str(self.run_id), defn, {"x": 1})
+        execute_workflow_run(str(self.run_id), defn, {"x": 1})
 
         # Reload and assert
         wfr = apps.get_model("workflows", "WorkflowRun").objects.get(id=self.run_id)

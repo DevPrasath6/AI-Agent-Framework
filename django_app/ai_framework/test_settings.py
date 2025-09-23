@@ -1,5 +1,5 @@
-from .settings import *
 from pathlib import Path
+from .settings import *  # noqa: F403
 
 # Use a lightweight sqlite DB for tests to avoid needing external Postgres
 BASE_DIR = Path(__file__).resolve().parent.parent

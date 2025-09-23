@@ -1,1 +1,0 @@
-export default function Agents(){return <div>Agents Page</div>}

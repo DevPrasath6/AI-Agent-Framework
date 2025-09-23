@@ -1,5 +1,4 @@
 from django.test import TestCase
-from django.utils import timezone
 import uuid
 
 from src.orchestrator.celery_tasks import execute_agent_run
@@ -39,7 +38,7 @@ class PersistenceTasksTest(TestCase):
 
         # Call the task directly (synchronously)
         payload = {"message": "hi"}
-        result = execute_agent_run(str(run_id), self.agent.name, payload)
+        execute_agent_run(str(run_id), self.agent.name, payload)
 
         # Reload from DB and assert
         ar.refresh_from_db()

@@ -4,7 +4,7 @@ Execution context management for agent workflows.
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 

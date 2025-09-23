@@ -9,7 +9,6 @@ This agent demonstrates:
 - Ticket creation and tracking
 """
 
-import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
@@ -511,7 +510,8 @@ flow = {
     ],
     "metadata": {"version": "1.0", "created_by": "ai_agent_framework"},
 }
-from src.sdk.agents import register_agent
+
+from src.sdk.agents import register_agent  # noqa: E402
 
 # Register an instance for SDK discovery
 try:

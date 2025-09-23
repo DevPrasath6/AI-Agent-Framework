@@ -10,10 +10,9 @@ This agent demonstrates:
 - Integration with Intel OpenVINO for model optimization
 """
 
-import logging
 import os
 import mimetypes
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from pathlib import Path
 
@@ -337,7 +336,7 @@ class DocumentProcessingAgent(AgentBase):
                 try:
                     extracted_text = raw_content.decode("utf-8", errors="ignore")
                     page_count = 1
-                except:
+                except Exception:
                     extracted_text = "Unable to extract text from this document format"
                     page_count = 0
         else:
@@ -1107,7 +1106,8 @@ flow = {
     },
 }
 
-from src.sdk.agents import register_agent
+
+from src.sdk.agents import register_agent  # noqa: E402
 
 try:
     register_agent(DocumentProcessingAgent())

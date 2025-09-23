@@ -7,7 +7,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Callable, Union
+from typing import Any, Dict, List, Optional, Set, Callable
 from enum import Enum
 from dataclasses import dataclass
 
@@ -567,7 +567,7 @@ class SimpleDAGWorkflow(WorkflowBase):
 
             return result
 
-        except Exception as e:
+        except Exception:
             duration = (datetime.utcnow() - step_start_time).total_seconds()
             context.record_step_timing(step.id, duration)
             raise

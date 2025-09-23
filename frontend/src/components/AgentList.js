@@ -1,1 +1,0 @@
-export default function AgentList(){return <div>Agent List</div>}

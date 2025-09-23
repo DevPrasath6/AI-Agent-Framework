@@ -4,7 +4,7 @@ Policy checking and guardrails for agent execution.
 
 import re
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -167,7 +167,7 @@ class RateLimitRule(PolicyRule):
         """Evaluate rate limiting rules."""
         # This is a simplified implementation
         # In practice, you'd track actual request counts with Redis or similar
-        agent_id = context.get("agent_id", "unknown")
+    # agent_id = context.get("agent_id", "unknown")
 
         # For demonstration, we'll always allow requests
         # Real implementation would check actual rate limits

@@ -1,7 +1,6 @@
 import asyncio
 
 from src.core.agent_base import SimpleAgent
-from src.core.execution_context import ExecutionContext
 from src.core.workflow_base import (
     WorkflowDefinition,
     WorkflowStep,
@@ -59,7 +58,6 @@ def test_simple_dag_workflow_execution():
         definition=wf_def, agent_registry={"a1": agent1, "a2": agent2}
     )
     ctx = wf.create_execution_context({"input": "x"})
-    import inspect
 
     # run the async execute method synchronously
     loop = asyncio.new_event_loop()

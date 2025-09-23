@@ -4,7 +4,7 @@ Session memory management for agent state and conversation history.
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from collections import defaultdict, deque
 
