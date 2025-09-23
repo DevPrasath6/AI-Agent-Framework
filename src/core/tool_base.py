@@ -1,6 +1,7 @@
 """
 Tool base classes and execution framework for agent tools.
 """
+
 import asyncio
 import logging
 import time
@@ -16,6 +17,7 @@ from .execution_context import ExecutionContext
 
 class ToolType(Enum):
     """Types of tools available in the framework."""
+
     LLM = "llm"
     WEB_SEARCH = "web_search"
     DATA_EXTRACTION = "data_extraction"
@@ -28,6 +30,7 @@ class ToolType(Enum):
 
 class ToolStatus(Enum):
     """Tool execution status."""
+
     READY = "ready"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -38,6 +41,7 @@ class ToolStatus(Enum):
 @dataclass
 class ToolResult:
     """Result of tool execution."""
+
     tool_name: str
     status: ToolStatus
     output: Any
@@ -65,7 +69,7 @@ class ToolBase(ABC):
         tool_type: ToolType = ToolType.CUSTOM,
         timeout: Optional[int] = None,
         retry_count: int = 0,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize tool.
@@ -93,9 +97,7 @@ class ToolBase(ABC):
         self.created_at = datetime.utcnow()
 
     async def execute(
-        self,
-        payload: Any,
-        context: Optional[ExecutionContext] = None
+        self, payload: Any, context: Optional[ExecutionContext] = None
     ) -> ToolResult:
         """
         Execute the tool with full lifecycle management.
@@ -117,7 +119,9 @@ class ToolBase(ABC):
             self.status = ToolStatus.RUNNING
             self.execution_count += 1
 
-            self.logger.info(f"Executing tool '{self.name}' with execution ID: {execution_id}")
+            self.logger.info(
+                f"Executing tool '{self.name}' with execution ID: {execution_id}"
+            )
 
             # Execute with retries
             result = await self._execute_with_retries(payload, context)
@@ -135,8 +139,8 @@ class ToolBase(ABC):
                 metadata={
                     "execution_id": execution_id,
                     "execution_count": self.execution_count,
-                    "tool_type": self.tool_type.value
-                }
+                    "tool_type": self.tool_type.value,
+                },
             )
 
             self.status = ToolStatus.COMPLETED
@@ -161,7 +165,7 @@ class ToolBase(ABC):
                 output=None,
                 error=error_msg,
                 duration=duration,
-                metadata={"execution_id": execution_id}
+                metadata={"execution_id": execution_id},
             )
 
         except Exception as e:
@@ -178,13 +182,11 @@ class ToolBase(ABC):
                 output=None,
                 error=error_msg,
                 duration=duration,
-                metadata={"execution_id": execution_id}
+                metadata={"execution_id": execution_id},
             )
 
     async def _execute_with_retries(
-        self,
-        payload: Any,
-        context: ExecutionContext
+        self, payload: Any, context: ExecutionContext
     ) -> Any:
         """Execute tool with retry logic."""
         last_error = None
@@ -194,8 +196,7 @@ class ToolBase(ABC):
                 if self.timeout:
                     # Execute with timeout
                     result = await asyncio.wait_for(
-                        self._execute_tool(payload, context),
-                        timeout=self.timeout
+                        self._execute_tool(payload, context), timeout=self.timeout
                     )
                 else:
                     # Execute without timeout
@@ -206,19 +207,19 @@ class ToolBase(ABC):
             except Exception as e:
                 last_error = e
                 if attempt < self.retry_count:
-                    self.logger.warning(f"Tool execution attempt {attempt + 1} failed, retrying: {e}")
+                    self.logger.warning(
+                        f"Tool execution attempt {attempt + 1} failed, retrying: {e}"
+                    )
                     await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
                 else:
-                    self.logger.error(f"Tool execution failed after {self.retry_count + 1} attempts")
+                    self.logger.error(
+                        f"Tool execution failed after {self.retry_count + 1} attempts"
+                    )
 
         raise last_error
 
     @abstractmethod
-    async def _execute_tool(
-        self,
-        payload: Any,
-        context: ExecutionContext
-    ) -> Any:
+    async def _execute_tool(self, payload: Any, context: ExecutionContext) -> Any:
         """
         Execute the tool's core logic.
 
@@ -242,7 +243,7 @@ class ToolBase(ABC):
             "average_duration": avg_duration,
             "total_duration": self.total_duration,
             "created_at": self.created_at.isoformat(),
-            "config": self.config
+            "config": self.config,
         }
 
     def reset_metrics(self) -> None:
@@ -264,7 +265,7 @@ class SimpleTool(ToolBase):
         func: Callable,
         description: str = "",
         tool_type: ToolType = ToolType.CUSTOM,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize simple tool.
@@ -279,11 +280,7 @@ class SimpleTool(ToolBase):
         super().__init__(name, description, tool_type, **kwargs)
         self.func = func
 
-    async def _execute_tool(
-        self,
-        payload: Any,
-        context: ExecutionContext
-    ) -> Any:
+    async def _execute_tool(self, payload: Any, context: ExecutionContext) -> Any:
         """Execute the wrapped function."""
         if asyncio.iscoroutinefunction(self.func):
             return await self.func(payload, context)
@@ -302,7 +299,7 @@ class DataProcessingTool(ToolBase):
         processor_func: Callable,
         input_schema: Optional[Dict[str, Any]] = None,
         output_schema: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize data processing tool.
@@ -314,20 +311,12 @@ class DataProcessingTool(ToolBase):
             output_schema: Expected output schema
             **kwargs: Additional tool configuration
         """
-        super().__init__(
-            name=name,
-            tool_type=ToolType.DATA_EXTRACTION,
-            **kwargs
-        )
+        super().__init__(name=name, tool_type=ToolType.DATA_EXTRACTION, **kwargs)
         self.processor_func = processor_func
         self.input_schema = input_schema
         self.output_schema = output_schema
 
-    async def _execute_tool(
-        self,
-        payload: Any,
-        context: ExecutionContext
-    ) -> Any:
+    async def _execute_tool(self, payload: Any, context: ExecutionContext) -> Any:
         """Execute data processing."""
         # Validate input if schema provided
         if self.input_schema:
@@ -345,12 +334,7 @@ class DataProcessingTool(ToolBase):
 
         return result
 
-    def _validate_data(
-        self,
-        data: Any,
-        schema: Dict[str, Any],
-        data_type: str
-    ) -> None:
+    def _validate_data(self, data: Any, schema: Dict[str, Any], data_type: str) -> None:
         """Validate data against schema (simplified validation)."""
         # This is a simplified validation
         # In practice, you'd use a proper schema validation library
@@ -408,24 +392,23 @@ class ToolRegistry:
             tool_type = tool.tool_type.value
             if tool_type not in tools_by_type:
                 tools_by_type[tool_type] = []
-            tools_by_type[tool_type].append({
-                "name": tool.name,
-                "description": tool.description,
-                "status": tool.status.value,
-                "execution_count": tool.execution_count
-            })
+            tools_by_type[tool_type].append(
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "status": tool.status.value,
+                    "execution_count": tool.execution_count,
+                }
+            )
 
         return {
             "total_tools": len(self.tools),
             "tools_by_type": tools_by_type,
-            "tool_names": list(self.tools.keys())
+            "tool_names": list(self.tools.keys()),
         }
 
     async def execute_tool(
-        self,
-        tool_name: str,
-        payload: Any,
-        context: Optional[ExecutionContext] = None
+        self, tool_name: str, payload: Any, context: Optional[ExecutionContext] = None
     ) -> ToolResult:
         """Execute a tool by name."""
         tool = self.get_tool(tool_name)

@@ -1,6 +1,7 @@
 """
 Workflow base classes and execution framework.
 """
+
 import asyncio
 import logging
 import uuid
@@ -17,6 +18,7 @@ from ..observability.audit_trail import AuditTrail
 
 class WorkflowStatus(Enum):
     """Workflow execution status."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -27,6 +29,7 @@ class WorkflowStatus(Enum):
 
 class StepType(Enum):
     """Types of workflow steps."""
+
     AGENT = "agent"
     TOOL = "tool"
     CONDITION = "condition"
@@ -38,6 +41,7 @@ class StepType(Enum):
 @dataclass
 class WorkflowStep:
     """Definition of a single workflow step."""
+
     id: str
     name: str
     step_type: StepType
@@ -55,6 +59,7 @@ class WorkflowStep:
 @dataclass
 class WorkflowDefinition:
     """Complete workflow definition."""
+
     id: str
     name: str
     description: str
@@ -79,7 +84,7 @@ class WorkflowExecutionResult:
         end_time: Optional[datetime] = None,
         output: Any = None,
         error: Optional[str] = None,
-        step_results: Optional[Dict[str, Any]] = None
+        step_results: Optional[Dict[str, Any]] = None,
     ):
         self.workflow_id = workflow_id
         self.execution_id = execution_id
@@ -99,15 +104,17 @@ class WorkflowExecutionResult:
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the execution result to a JSON-friendly dict."""
         return {
-            'workflow_id': self.workflow_id,
-            'execution_id': self.execution_id,
-            'status': self.status.value if isinstance(self.status, WorkflowStatus) else str(self.status),
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'duration': self.duration,
-            'output': self.output,
-            'error': self.error,
-            'step_results': self.step_results,
+            "workflow_id": self.workflow_id,
+            "execution_id": self.execution_id,
+            "status": self.status.value
+            if isinstance(self.status, WorkflowStatus)
+            else str(self.status),
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "duration": self.duration,
+            "output": self.output,
+            "error": self.error,
+            "step_results": self.step_results,
         }
 
 
@@ -123,7 +130,7 @@ class WorkflowBase(ABC):
         self,
         definition: WorkflowDefinition,
         agent_registry: Optional[Dict[str, AgentBase]] = None,
-        tool_registry: Optional[Dict[str, Callable]] = None
+        tool_registry: Optional[Dict[str, Callable]] = None,
     ):
         """
         Initialize workflow.
@@ -154,7 +161,7 @@ class WorkflowBase(ABC):
         self,
         input_data: Any,
         context: Optional[ExecutionContext] = None,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
     ) -> WorkflowExecutionResult:
         """
         Execute the workflow.
@@ -171,10 +178,7 @@ class WorkflowBase(ABC):
         start_time = datetime.utcnow()
 
         if context is None:
-            context = ExecutionContext(
-                workflow_id=self.id,
-                user_id=user_id
-            )
+            context = ExecutionContext(workflow_id=self.id, user_id=user_id)
 
         context.start_execution()
         self.current_execution_id = execution_id
@@ -187,7 +191,7 @@ class WorkflowBase(ABC):
             await self.audit_trail.log_execution_start(
                 execution_id=execution_id,
                 input_data=input_data,
-                context=context.to_dict()
+                context=context.to_dict(),
             )
 
             # Execute workflow steps
@@ -206,18 +210,18 @@ class WorkflowBase(ABC):
                 start_time=start_time,
                 end_time=end_time,
                 output=output,
-                step_results=self._extract_step_results(context)
+                step_results=self._extract_step_results(context),
             )
 
             # Log completion
             await self.audit_trail.log_execution_complete(
-                execution_id=execution_id,
-                output_data=output,
-                duration=result.duration
+                execution_id=execution_id, output_data=output, duration=result.duration
             )
 
             self.execution_history.append(result)
-            self.logger.info(f"Workflow execution {execution_id} completed successfully")
+            self.logger.info(
+                f"Workflow execution {execution_id} completed successfully"
+            )
 
             return result
 
@@ -237,14 +241,12 @@ class WorkflowBase(ABC):
                 start_time=start_time,
                 end_time=end_time,
                 error=error_msg,
-                step_results=self._extract_step_results(context)
+                step_results=self._extract_step_results(context),
             )
 
             # Log error
             await self.audit_trail.log_execution_error(
-                execution_id=execution_id,
-                error=error_msg,
-                duration=result.duration
+                execution_id=execution_id, error=error_msg, duration=result.duration
             )
 
             self.execution_history.append(result)
@@ -254,9 +256,7 @@ class WorkflowBase(ABC):
 
     @abstractmethod
     async def _execute_workflow(
-        self,
-        input_data: Any,
-        context: ExecutionContext
+        self, input_data: Any, context: ExecutionContext
     ) -> Any:
         """
         Execute the workflow logic.
@@ -270,7 +270,9 @@ class WorkflowBase(ABC):
         """Cancel the current workflow execution."""
         if self.status == WorkflowStatus.RUNNING:
             self.status = WorkflowStatus.CANCELLED
-            self.logger.info(f"Workflow execution {self.current_execution_id} cancelled")
+            self.logger.info(
+                f"Workflow execution {self.current_execution_id} cancelled"
+            )
             return True
         return False
 
@@ -314,7 +316,7 @@ class WorkflowBase(ABC):
             "agent_count": len(self.agent_registry),
             "tool_count": len(self.tool_registry),
             "success_rate": self._calculate_success_rate(),
-            "average_duration": self._calculate_average_duration()
+            "average_duration": self._calculate_average_duration(),
         }
 
     def _validate_definition(self) -> None:
@@ -332,7 +334,9 @@ class WorkflowBase(ABC):
         for step in self.definition.steps:
             for dep_id in step.dependencies:
                 if dep_id not in step_ids:
-                    raise ValueError(f"Step {step.id} depends on non-existent step {dep_id}")
+                    raise ValueError(
+                        f"Step {step.id} depends on non-existent step {dep_id}"
+                    )
 
         # Check for circular dependencies (simple check)
         self._check_circular_dependencies()
@@ -362,7 +366,9 @@ class WorkflowBase(ABC):
         for step in self.definition.steps:
             if step.id not in visited:
                 if has_cycle(step.id):
-                    raise ValueError(f"Circular dependency detected involving step {step.id}")
+                    raise ValueError(
+                        f"Circular dependency detected involving step {step.id}"
+                    )
 
     def _extract_step_results(self, context: ExecutionContext) -> Dict[str, Any]:
         """Extract step results from execution context."""
@@ -371,7 +377,7 @@ class WorkflowBase(ABC):
             "executed_tools": context.executed_tools,
             "executed_agents": context.executed_agents,
             "agent_outputs": context.agent_outputs,
-            "step_timings": context.step_timings
+            "step_timings": context.step_timings,
         }
 
     def _calculate_success_rate(self) -> float:
@@ -379,19 +385,44 @@ class WorkflowBase(ABC):
         if not self.execution_history:
             return 0.0
 
-        successful = sum(1 for result in self.execution_history
-                        if result.status == WorkflowStatus.COMPLETED)
+        successful = sum(
+            1
+            for result in self.execution_history
+            if result.status == WorkflowStatus.COMPLETED
+        )
         return (successful / len(self.execution_history)) * 100
 
     def _calculate_average_duration(self) -> Optional[float]:
         """Calculate average execution duration."""
-        durations = [result.duration for result in self.execution_history
-                    if result.duration is not None]
+        durations = [
+            result.duration
+            for result in self.execution_history
+            if result.duration is not None
+        ]
 
         if not durations:
             return None
 
         return sum(durations) / len(durations)
+
+    def create_execution_context(
+        self, initial_shared: Optional[Any] = None, user_id: Optional[str] = None
+    ) -> ExecutionContext:
+        """Create a pre-populated ExecutionContext for this workflow.
+
+        Args:
+            initial_shared: Optional initial shared data (will be stored under
+                the key `workflow_input`).
+            user_id: Optional user id for audit purposes.
+
+        Returns:
+            ExecutionContext instance ready to be passed to `execute()`.
+        """
+        ctx = ExecutionContext(workflow_id=self.id, user_id=user_id)
+        if initial_shared is not None:
+            # Store initial input under a canonical key
+            ctx.set_shared_data("workflow_input", initial_shared)
+        return ctx
 
 
 class SimpleDAGWorkflow(WorkflowBase):
@@ -403,9 +434,7 @@ class SimpleDAGWorkflow(WorkflowBase):
     """
 
     async def _execute_workflow(
-        self,
-        input_data: Any,
-        context: ExecutionContext
+        self, input_data: Any, context: ExecutionContext
     ) -> Any:
         """Execute workflow using DAG execution strategy."""
         context.advance_phase(ExecutionPhase.AGENT_EXECUTION)
@@ -481,7 +510,7 @@ class SimpleDAGWorkflow(WorkflowBase):
         step_ids: List[str],
         input_data: Any,
         context: ExecutionContext,
-        previous_outputs: Dict[str, Any]
+        previous_outputs: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Execute a batch of steps in parallel."""
         tasks = []
@@ -489,7 +518,9 @@ class SimpleDAGWorkflow(WorkflowBase):
         for step_id in step_ids:
             step = self.get_step_by_id(step_id)
             if step:
-                task = self._execute_single_step(step, input_data, context, previous_outputs)
+                task = self._execute_single_step(
+                    step, input_data, context, previous_outputs
+                )
                 tasks.append((step_id, task))
 
         # Execute all steps in parallel
@@ -511,7 +542,7 @@ class SimpleDAGWorkflow(WorkflowBase):
         step: WorkflowStep,
         input_data: Any,
         context: ExecutionContext,
-        previous_outputs: Dict[str, Any]
+        previous_outputs: Dict[str, Any],
     ) -> Any:
         """Execute a single workflow step."""
         step_start_time = datetime.utcnow()
@@ -542,10 +573,7 @@ class SimpleDAGWorkflow(WorkflowBase):
             raise
 
     async def _execute_agent_step(
-        self,
-        step: WorkflowStep,
-        input_data: Any,
-        context: ExecutionContext
+        self, step: WorkflowStep, input_data: Any, context: ExecutionContext
     ) -> Any:
         """Execute an agent step."""
         agent_name = step.config.get("agent_name")
@@ -564,25 +592,28 @@ class SimpleDAGWorkflow(WorkflowBase):
         # Best-effort: create an AgentRun record in Django DB for observability
         try:
             from django.apps import apps as _apps
-            AgentRunModel = _apps.get_model('agents', 'AgentRun')
+
+            AgentRunModel = _apps.get_model("agents", "AgentRun")
             # Try to locate agent model by name
-            AgentModel = _apps.get_model('agents', 'Agent')
+            AgentModel = _apps.get_model("agents", "Agent")
             agent_obj = AgentModel.objects.filter(name=agent_name).first()
             # Create AgentRun only if we can identify the Agent
             if agent_obj:
-                AgentRunModel.objects.create(agent=agent_obj, input_payload=input_data, output=output, status='COMPLETED')
+                AgentRunModel.objects.create(
+                    agent=agent_obj,
+                    input_payload=input_data,
+                    output=output,
+                    status="COMPLETED",
+                )
         except Exception:
             # If Django isn't available or DB write fails, ignore (best-effort)
             pass
 
-        context.record_agent_execution(getattr(agent, 'id', agent_name), output)
+        context.record_agent_execution(getattr(agent, "id", agent_name), output)
         return output
 
     async def _execute_tool_step(
-        self,
-        step: WorkflowStep,
-        input_data: Any,
-        context: ExecutionContext
+        self, step: WorkflowStep, input_data: Any, context: ExecutionContext
     ) -> Any:
         """Execute a tool step."""
         tool_name = step.config.get("tool_name")
@@ -593,18 +624,19 @@ class SimpleDAGWorkflow(WorkflowBase):
 
         # Execute tool function
         if asyncio.iscoroutinefunction(tool_func):
-            result = await tool_func(input_data, context, **step.config.get("tool_params", {}))
+            result = await tool_func(
+                input_data, context, **step.config.get("tool_params", {})
+            )
         else:
-            result = tool_func(input_data, context, **step.config.get("tool_params", {}))
+            result = tool_func(
+                input_data, context, **step.config.get("tool_params", {})
+            )
 
         context.record_tool_execution(tool_name)
         return result
 
     async def _execute_condition_step(
-        self,
-        step: WorkflowStep,
-        input_data: Any,
-        context: ExecutionContext
+        self, step: WorkflowStep, input_data: Any, context: ExecutionContext
     ) -> Any:
         """Execute a conditional step."""
         condition = step.config.get("condition")
@@ -618,10 +650,7 @@ class SimpleDAGWorkflow(WorkflowBase):
             return step.config.get("false_value", input_data)
 
     def _prepare_step_input(
-        self,
-        step: WorkflowStep,
-        workflow_input: Any,
-        previous_outputs: Dict[str, Any]
+        self, step: WorkflowStep, workflow_input: Any, previous_outputs: Dict[str, Any]
     ) -> Any:
         """Prepare input for a step based on its dependencies."""
         if not step.dependencies:
@@ -633,10 +662,7 @@ class SimpleDAGWorkflow(WorkflowBase):
         return previous_outputs.get(last_dep, workflow_input)
 
     def _evaluate_condition(
-        self,
-        condition: str,
-        input_data: Any,
-        context: ExecutionContext
+        self, condition: str, input_data: Any, context: ExecutionContext
     ) -> bool:
         """Evaluate a simple condition."""
         # This is a simplified condition evaluator

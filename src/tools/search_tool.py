@@ -1,2 +1,3 @@
 class SearchTool:
-    def search(self, q): return []
+    def search(self, q):
+        return []

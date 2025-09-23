@@ -1,6 +1,7 @@
 """
 Execution context management for agent workflows.
 """
+
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
@@ -9,6 +10,7 @@ from enum import Enum
 
 class ExecutionPhase(Enum):
     """Execution phases for tracking workflow progress."""
+
     INITIALIZATION = "initialization"
     INPUT_PROCESSING = "input_processing"
     TOOL_EXECUTION = "tool_execution"
@@ -35,7 +37,7 @@ class ExecutionContext:
         metadata: Optional[Dict[str, Any]] = None,
         # Legacy compatibility
         run_id: Optional[str] = None,
-        memory: Optional[Dict[str, Any]] = None
+        memory: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize execution context.
@@ -129,10 +131,7 @@ class ExecutionContext:
         return self.shared_data.get(key, default)
 
     def add_intermediate_result(
-        self,
-        step_name: str,
-        result: Any,
-        metadata: Optional[Dict[str, Any]] = None
+        self, step_name: str, result: Any, metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """Add an intermediate result from a workflow step."""
         result_entry = {
@@ -140,7 +139,7 @@ class ExecutionContext:
             "result": result,
             "timestamp": datetime.utcnow().isoformat(),
             "step_number": len(self.intermediate_results) + 1,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
         self.intermediate_results.append(result_entry)
         self._update_timestamp()
@@ -158,10 +157,7 @@ class ExecutionContext:
         self._update_timestamp()
 
     def add_error(
-        self,
-        error_type: str,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
+        self, error_type: str, message: str, details: Optional[Dict[str, Any]] = None
     ) -> None:
         """Add an error to the execution context."""
         error_entry = {
@@ -170,7 +166,7 @@ class ExecutionContext:
             "timestamp": datetime.utcnow().isoformat(),
             "phase": self.phase.value,
             "step_count": self.step_count,
-            "details": details or {}
+            "details": details or {},
         }
         self.errors.append(error_entry)
         self._update_timestamp()
@@ -221,7 +217,7 @@ class ExecutionContext:
             "agents_executed": len(self.executed_agents),
             "has_intermediate_results": len(self.intermediate_results) > 0,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "updated_at": self.updated_at.isoformat(),
         }
 
     def to_dict(self) -> Dict[str, Any]:
@@ -251,7 +247,7 @@ class ExecutionContext:
             "end_time": self.end_time.isoformat() if self.end_time else None,
             # Legacy compatibility
             "run_id": self.run_id,
-            "memory": self.memory
+            "memory": self.memory,
         }
 
     @classmethod
@@ -264,12 +260,14 @@ class ExecutionContext:
             session_id=data.get("session_id"),
             metadata=data.get("metadata", {}),
             run_id=data.get("run_id"),
-            memory=data.get("memory", {})
+            memory=data.get("memory", {}),
         )
 
         # Restore state
         context.execution_id = data.get("execution_id", context.execution_id)
-        context.phase = ExecutionPhase(data.get("phase", ExecutionPhase.INITIALIZATION.value))
+        context.phase = ExecutionPhase(
+            data.get("phase", ExecutionPhase.INITIALIZATION.value)
+        )
         context.step_count = data.get("step_count", 0)
         context.is_cancelled = data.get("is_cancelled", False)
         context.shared_data = data.get("shared_data", {})

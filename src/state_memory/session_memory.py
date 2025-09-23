@@ -1,6 +1,7 @@
 """
 Session memory management for agent state and conversation history.
 """
+
 import json
 import logging
 from datetime import datetime, timedelta
@@ -20,7 +21,7 @@ class SessionMemory:
         agent_id: str,
         max_history_size: int = 100,
         session_timeout: int = 3600,  # 1 hour in seconds
-        redis_client=None
+        redis_client=None,
     ):
         """
         Initialize session memory.
@@ -52,7 +53,7 @@ class SessionMemory:
         input_data: Any,
         output_data: Any,
         context: Dict[str, Any],
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
     ) -> None:
         """Store an interaction in memory."""
         interaction = {
@@ -61,7 +62,7 @@ class SessionMemory:
             "output": self._serialize_data(output_data),
             "context": context,
             "session_id": session_id or "default",
-            "interaction_id": f"{self.agent_id}_{self.total_interactions}"
+            "interaction_id": f"{self.agent_id}_{self.total_interactions}",
         }
 
         # Store in history
@@ -94,9 +95,7 @@ class SessionMemory:
             self._store[key] = value
 
     def get_interaction_history(
-        self,
-        session_id: Optional[str] = None,
-        limit: Optional[int] = None
+        self, session_id: Optional[str] = None, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Get interaction history."""
         history = list(self._interaction_history)
@@ -112,9 +111,7 @@ class SessionMemory:
         return history
 
     def get_recent_context(
-        self,
-        session_id: Optional[str] = None,
-        lookback_count: int = 5
+        self, session_id: Optional[str] = None, lookback_count: int = 5
     ) -> Dict[str, Any]:
         """Get recent context for continuing conversations."""
         recent_interactions = self.get_interaction_history(session_id, lookback_count)
@@ -126,9 +123,11 @@ class SessionMemory:
         context = {
             "recent_inputs": [i["input"] for i in recent_interactions[-3:]],
             "recent_outputs": [i["output"] for i in recent_interactions[-3:]],
-            "last_interaction": recent_interactions[-1] if recent_interactions else None,
+            "last_interaction": recent_interactions[-1]
+            if recent_interactions
+            else None,
             "conversation_length": len(recent_interactions),
-            "session_id": session_id
+            "session_id": session_id,
         }
 
         return context
@@ -145,7 +144,7 @@ class SessionMemory:
             "total_sessions": len(self._session_data),
             "memory_size_kb": self._estimate_memory_size(),
             "created_at": self.created_at.isoformat(),
-            "using_redis": self.redis_client is not None
+            "using_redis": self.redis_client is not None,
         }
 
     def clear_session(self, session_id: str) -> bool:
@@ -159,7 +158,7 @@ class SessionMemory:
         # Remove from interaction history
         self._interaction_history = deque(
             [h for h in self._interaction_history if h.get("session_id") != session_id],
-            maxlen=self.max_history_size
+            maxlen=self.max_history_size,
         )
 
         self.logger.info(f"Cleared session {session_id}")
@@ -188,8 +187,7 @@ class SessionMemory:
             return None
 
         session_interactions = [
-            h for h in self._interaction_history
-            if h.get("session_id") == session_id
+            h for h in self._interaction_history if h.get("session_id") == session_id
         ]
 
         return {
@@ -197,8 +195,12 @@ class SessionMemory:
             "data_keys": list(self._session_data[session_id].keys()),
             "interaction_count": len(session_interactions),
             "last_access": self._last_access.get(session_id),
-            "first_interaction": session_interactions[0] if session_interactions else None,
-            "last_interaction": session_interactions[-1] if session_interactions else None
+            "first_interaction": session_interactions[0]
+            if session_interactions
+            else None,
+            "last_interaction": session_interactions[-1]
+            if session_interactions
+            else None,
         }
 
     def _count_active_sessions(self) -> int:
@@ -216,12 +218,15 @@ class SessionMemory:
         """Estimate memory usage in KB."""
         try:
             # Rough estimate based on string representation
-            data_str = json.dumps({
-                "store": self._store,
-                "history": list(self._interaction_history),
-                "sessions": dict(self._session_data)
-            }, default=str)
-            return len(data_str.encode('utf-8')) / 1024
+            data_str = json.dumps(
+                {
+                    "store": self._store,
+                    "history": list(self._interaction_history),
+                    "sessions": dict(self._session_data),
+                },
+                default=str,
+            )
+            return len(data_str.encode("utf-8")) / 1024
         except Exception:
             return 0.0
 
@@ -240,9 +245,7 @@ class SessionMemory:
         try:
             key = f"agent:{self.agent_id}:interaction:{interaction['interaction_id']}"
             await self.redis_client.setex(
-                key,
-                self.session_timeout,
-                json.dumps(interaction, default=str)
+                key, self.session_timeout, json.dumps(interaction, default=str)
             )
         except Exception as e:
             self.logger.error(f"Failed to store interaction in Redis: {e}")
@@ -264,15 +267,13 @@ class SharedMemory:
         self._shared_store[key] = {
             "value": value,
             "timestamp": datetime.utcnow().isoformat(),
-            "ttl": ttl
+            "ttl": ttl,
         }
 
         if self.redis_client and ttl:
             try:
                 await self.redis_client.setex(
-                    f"shared:{key}",
-                    ttl,
-                    json.dumps(value, default=str)
+                    f"shared:{key}", ttl, json.dumps(value, default=str)
                 )
             except Exception as e:
                 self.logger.error(f"Failed to set shared value in Redis: {e}")

@@ -8,13 +8,19 @@ This agent demonstrates:
 - Human-in-the-loop escalation
 - Ticket creation and tracking
 """
+
 import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from src.core.agent_base import AgentBase, AgentCapability
 from src.core.execution_context import ExecutionContext
-from src.core.workflow_base import WorkflowDefinition, WorkflowStep, StepType, SimpleDAGWorkflow
+from src.core.workflow_base import (
+    WorkflowDefinition,
+    WorkflowStep,
+    StepType,
+    SimpleDAGWorkflow,
+)
 from src.tools.llm_tool import ConversationLLMTool
 
 
@@ -29,7 +35,7 @@ class CustomerSupportAgent(AgentBase):
         llm_config: Optional[Dict[str, Any]] = None,
         knowledge_base: Optional[Dict[str, Any]] = None,
         escalation_threshold: float = 0.7,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize customer support agent.
@@ -47,16 +53,13 @@ class CustomerSupportAgent(AgentBase):
             capabilities=[
                 AgentCapability.CONVERSATION,
                 AgentCapability.TEXT_PROCESSING,
-                AgentCapability.WORKFLOW_ORCHESTRATION
+                AgentCapability.WORKFLOW_ORCHESTRATION,
             ],
-            **kwargs
+            **kwargs,
         )
 
         # Initialize LLM tool for conversations
-        self.llm_tool = ConversationLLMTool(
-            name="support_llm",
-            **(llm_config or {})
-        )
+        self.llm_tool = ConversationLLMTool(name="support_llm", **(llm_config or {}))
 
         # Knowledge base for FAQ and solutions
         self.knowledge_base = knowledge_base or self._get_default_knowledge_base()
@@ -70,9 +73,7 @@ class CustomerSupportAgent(AgentBase):
         self.ticket_counter = 0
 
     async def execute(
-        self,
-        input_data: Any,
-        context: ExecutionContext
+        self, input_data: Any, context: ExecutionContext
     ) -> Dict[str, Any]:
         """Execute customer support workflow."""
         # Parse customer inquiry
@@ -85,7 +86,10 @@ class CustomerSupportAgent(AgentBase):
         analysis = await self._analyze_inquiry(inquiry, context)
 
         # Check if human escalation is needed
-        if analysis["sentiment_score"] < self.escalation_threshold or analysis["requires_human"]:
+        if (
+            analysis["sentiment_score"] < self.escalation_threshold
+            or analysis["requires_human"]
+        ):
             return await self._escalate_to_human(inquiry, analysis, context)
 
         # Search knowledge base for relevant information
@@ -111,7 +115,7 @@ class CustomerSupportAgent(AgentBase):
             "resolution_status": resolution_status,
             "ticket_info": ticket_info,
             "requires_human_escalation": analysis["requires_human"],
-            "session_id": session_id
+            "session_id": session_id,
         }
 
     def _parse_inquiry(self, input_data: Any) -> str:
@@ -124,13 +128,19 @@ class CustomerSupportAgent(AgentBase):
             return str(input_data)
 
     async def _analyze_inquiry(
-        self,
-        inquiry: str,
-        context: ExecutionContext
+        self, inquiry: str, context: ExecutionContext
     ) -> Dict[str, Any]:
         """Analyze customer inquiry for sentiment and urgency."""
         # Simple sentiment analysis (in practice, use a proper sentiment analyzer)
-        negative_words = ["angry", "frustrated", "terrible", "awful", "hate", "broken", "urgent"]
+        negative_words = [
+            "angry",
+            "frustrated",
+            "terrible",
+            "awful",
+            "hate",
+            "broken",
+            "urgent",
+        ]
         positive_words = ["thanks", "great", "good", "excellent", "love", "perfect"]
 
         inquiry_lower = inquiry.lower()
@@ -146,20 +156,25 @@ class CustomerSupportAgent(AgentBase):
 
         # Check for complex issues that need human attention
         complex_indicators = ["billing", "refund", "cancel", "subscription", "legal"]
-        requires_human = any(indicator in inquiry_lower for indicator in complex_indicators)
+        requires_human = any(
+            indicator in inquiry_lower for indicator in complex_indicators
+        )
 
         return {
             "sentiment_score": sentiment_score,
             "is_urgent": is_urgent,
-            "requires_human": requires_human or sentiment_score < self.escalation_threshold,
-            "detected_keywords": [word for word in negative_words + positive_words if word in inquiry_lower],
-            "analysis_timestamp": datetime.utcnow().isoformat()
+            "requires_human": requires_human
+            or sentiment_score < self.escalation_threshold,
+            "detected_keywords": [
+                word
+                for word in negative_words + positive_words
+                if word in inquiry_lower
+            ],
+            "analysis_timestamp": datetime.utcnow().isoformat(),
         }
 
     async def _search_knowledge_base(
-        self,
-        inquiry: str,
-        context: ExecutionContext
+        self, inquiry: str, context: ExecutionContext
     ) -> List[Dict[str, Any]]:
         """Search knowledge base for relevant information."""
         inquiry_lower = inquiry.lower()
@@ -170,12 +185,16 @@ class CustomerSupportAgent(AgentBase):
                 # Simple keyword matching (in practice, use semantic search)
                 keywords = item.get("keywords", [])
                 if any(keyword.lower() in inquiry_lower for keyword in keywords):
-                    matches.append({
-                        "category": category,
-                        "title": item["title"],
-                        "content": item["content"],
-                        "relevance_score": self._calculate_relevance(inquiry, item["keywords"])
-                    })
+                    matches.append(
+                        {
+                            "category": category,
+                            "title": item["title"],
+                            "content": item["content"],
+                            "relevance_score": self._calculate_relevance(
+                                inquiry, item["keywords"]
+                            ),
+                        }
+                    )
 
         # Sort by relevance score
         matches.sort(key=lambda x: x["relevance_score"], reverse=True)
@@ -194,14 +213,17 @@ class CustomerSupportAgent(AgentBase):
         kb_results: List[Dict[str, Any]],
         analysis: Dict[str, Any],
         session_id: str,
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> str:
         """Generate response using LLM with knowledge base context."""
         # Build context for LLM
-        kb_context = "\n".join([
-            f"- {result['title']}: {result['content']}"
-            for result in kb_results
-        ]) if kb_results else "No specific knowledge base matches found."
+        kb_context = (
+            "\n".join(
+                [f"- {result['title']}: {result['content']}" for result in kb_results]
+            )
+            if kb_results
+            else "No specific knowledge base matches found."
+        )
 
         system_message = f"""You are a helpful customer support agent. Use the following knowledge base information to help answer the customer's question:
 
@@ -221,34 +243,42 @@ Guidelines:
             message=inquiry,
             session_id=session_id,
             system_message=system_message,
-            context=context
+            context=context,
         )
 
         return response.text
 
     async def _assess_resolution(
-        self,
-        response: str,
-        context: ExecutionContext
+        self, response: str, context: ExecutionContext
     ) -> Dict[str, Any]:
         """Assess if the issue has been resolved."""
         # Simple resolution assessment (in practice, use ML model)
         resolution_indicators = [
-            "solved", "resolved", "fixed", "working", "complete",
-            "should work now", "try this", "follow these steps"
+            "solved",
+            "resolved",
+            "fixed",
+            "working",
+            "complete",
+            "should work now",
+            "try this",
+            "follow these steps",
         ]
 
         response_lower = response.lower()
-        resolution_score = sum(1 for indicator in resolution_indicators if indicator in response_lower)
+        resolution_score = sum(
+            1 for indicator in resolution_indicators if indicator in response_lower
+        )
 
         is_resolved = resolution_score > 0
-        needs_followup = "follow up" in response_lower or "let me know" in response_lower
+        needs_followup = (
+            "follow up" in response_lower or "let me know" in response_lower
+        )
 
         return {
             "is_resolved": is_resolved,
             "needs_followup": needs_followup,
             "resolution_score": resolution_score,
-            "assessment_timestamp": datetime.utcnow().isoformat()
+            "assessment_timestamp": datetime.utcnow().isoformat(),
         }
 
     async def _manage_ticket(
@@ -257,7 +287,7 @@ Guidelines:
         response: str,
         resolution_status: Dict[str, Any],
         session_id: str,
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Dict[str, Any]:
         """Create or update support ticket."""
         ticket_id = f"TICKET_{self.ticket_counter:06d}"
@@ -271,18 +301,20 @@ Guidelines:
                 "created_at": datetime.utcnow().isoformat(),
                 "customer_inquiry": inquiry,
                 "conversation_history": [],
-                "resolution_attempts": 0
+                "resolution_attempts": 0,
             }
 
         ticket = self.active_tickets[session_id]
 
         # Update ticket with current interaction
-        ticket["conversation_history"].append({
-            "timestamp": datetime.utcnow().isoformat(),
-            "customer_message": inquiry,
-            "agent_response": response,
-            "resolution_status": resolution_status
-        })
+        ticket["conversation_history"].append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "customer_message": inquiry,
+                "agent_response": response,
+                "resolution_status": resolution_status,
+            }
+        )
 
         ticket["resolution_attempts"] += 1
         ticket["last_updated"] = datetime.utcnow().isoformat()
@@ -297,14 +329,11 @@ Guidelines:
             "ticket_id": ticket["ticket_id"],
             "status": ticket["status"],
             "resolution_attempts": ticket["resolution_attempts"],
-            "created_at": ticket["created_at"]
+            "created_at": ticket["created_at"],
         }
 
     async def _escalate_to_human(
-        self,
-        inquiry: str,
-        analysis: Dict[str, Any],
-        context: ExecutionContext
+        self, inquiry: str, analysis: Dict[str, Any], context: ExecutionContext
     ) -> Dict[str, Any]:
         """Escalate inquiry to human agent."""
         escalation_reason = []
@@ -325,7 +354,7 @@ Guidelines:
             "requires_human_escalation": True,
             "priority": "high" if analysis["is_urgent"] else "normal",
             "analysis": analysis,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def _get_default_knowledge_base(self) -> Dict[str, List[Dict[str, Any]]]:
@@ -335,46 +364,63 @@ Guidelines:
                 {
                     "title": "Password Reset",
                     "content": "To reset your password, go to the login page and click 'Forgot Password'. Enter your email address and follow the instructions in the email you receive.",
-                    "keywords": ["password", "reset", "forgot", "login", "access"]
+                    "keywords": ["password", "reset", "forgot", "login", "access"],
                 },
                 {
                     "title": "Account Locked",
                     "content": "If your account is locked due to multiple failed login attempts, it will automatically unlock after 30 minutes. You can also contact support to unlock it immediately.",
-                    "keywords": ["locked", "account", "login", "attempts", "unlock"]
-                }
+                    "keywords": ["locked", "account", "login", "attempts", "unlock"],
+                },
             ],
             "billing": [
                 {
                     "title": "Payment Issues",
                     "content": "If you're experiencing payment issues, please check that your payment method is valid and has sufficient funds. You can update your payment method in Account Settings.",
-                    "keywords": ["payment", "billing", "charge", "card", "declined"]
+                    "keywords": ["payment", "billing", "charge", "card", "declined"],
                 },
                 {
                     "title": "Refund Policy",
                     "content": "We offer refunds within 30 days of purchase. Please contact our billing department with your order number for refund requests.",
-                    "keywords": ["refund", "return", "money", "back", "cancel"]
-                }
+                    "keywords": ["refund", "return", "money", "back", "cancel"],
+                },
             ],
             "technical_support": [
                 {
                     "title": "App Not Working",
                     "content": "If the app is not working properly, try clearing your browser cache or updating to the latest version. If the problem persists, please provide details about the error you're seeing.",
-                    "keywords": ["app", "not working", "broken", "error", "bug", "crash"]
+                    "keywords": [
+                        "app",
+                        "not working",
+                        "broken",
+                        "error",
+                        "bug",
+                        "crash",
+                    ],
                 },
                 {
                     "title": "Slow Performance",
                     "content": "Slow performance can be caused by network issues or browser problems. Try refreshing the page, checking your internet connection, or using a different browser.",
-                    "keywords": ["slow", "performance", "loading", "speed", "lag"]
-                }
-            ]
+                    "keywords": ["slow", "performance", "loading", "speed", "lag"],
+                },
+            ],
         }
 
     def get_ticket_summary(self) -> Dict[str, Any]:
         """Get summary of all support tickets."""
         total_tickets = len(self.active_tickets)
-        open_tickets = sum(1 for ticket in self.active_tickets.values() if ticket["status"] == "open")
-        resolved_tickets = sum(1 for ticket in self.active_tickets.values() if ticket["status"] == "resolved")
-        escalated_tickets = sum(1 for ticket in self.active_tickets.values() if ticket["status"] == "escalated")
+        open_tickets = sum(
+            1 for ticket in self.active_tickets.values() if ticket["status"] == "open"
+        )
+        resolved_tickets = sum(
+            1
+            for ticket in self.active_tickets.values()
+            if ticket["status"] == "resolved"
+        )
+        escalated_tickets = sum(
+            1
+            for ticket in self.active_tickets.values()
+            if ticket["status"] == "escalated"
+        )
 
         return {
             "total_tickets": total_tickets,
@@ -382,7 +428,7 @@ Guidelines:
             "resolved_tickets": resolved_tickets,
             "escalated_tickets": escalated_tickets,
             "resolution_rate": (resolved_tickets / max(total_tickets, 1)) * 100,
-            "escalation_rate": (escalated_tickets / max(total_tickets, 1)) * 100
+            "escalation_rate": (escalated_tickets / max(total_tickets, 1)) * 100,
         }
 
 
@@ -400,7 +446,7 @@ def create_customer_support_workflow() -> SimpleDAGWorkflow:
                 name="Analyze Customer Inquiry",
                 step_type=StepType.AGENT,
                 config={"agent_name": "customer_support_agent"},
-                dependencies=[]
+                dependencies=[],
             ),
             WorkflowStep(
                 id="check_escalation",
@@ -409,9 +455,9 @@ def create_customer_support_workflow() -> SimpleDAGWorkflow:
                 config={
                     "condition": "input.get('requires_human_escalation', False)",
                     "true_value": "escalate",
-                    "false_value": "continue"
+                    "false_value": "continue",
                 },
-                dependencies=["analyze_inquiry"]
+                dependencies=["analyze_inquiry"],
             ),
             WorkflowStep(
                 id="generate_followup",
@@ -419,63 +465,51 @@ def create_customer_support_workflow() -> SimpleDAGWorkflow:
                 step_type=StepType.AGENT,
                 config={"agent_name": "customer_support_agent"},
                 dependencies=["check_escalation"],
-                condition="input != 'escalate'"
-            )
+                condition="input != 'escalate'",
+            ),
         ],
         metadata={
             "version": "1.0",
             "author": "AI Agent Framework",
-            "tags": ["customer_support", "conversation", "escalation"]
-        }
+            "tags": ["customer_support", "conversation", "escalation"],
+        },
     )
 
     # Create agent registry
-    agent_registry = {
-        "customer_support_agent": CustomerSupportAgent()
-    }
+    agent_registry = {"customer_support_agent": CustomerSupportAgent()}
 
     return SimpleDAGWorkflow(
-        definition=workflow_definition,
-        agent_registry=agent_registry
+        definition=workflow_definition, agent_registry=agent_registry
     )
 
 
 # Example usage and flow definition for legacy compatibility
 flow = {
-    'flow_id': 'support_v1',
-    'description': 'Customer support flow with AI agent and human escalation',
-    'tasks': [
+    "flow_id": "support_v1",
+    "description": "Customer support flow with AI agent and human escalation",
+    "tasks": [
         {
-            'id': 'intake',
-            'type': 'agent_execution',
-            'agent': 'customer_support_agent',
-            'config': {
-                'max_turns': 5,
-                'escalation_threshold': 0.7
-            }
+            "id": "intake",
+            "type": "agent_execution",
+            "agent": "customer_support_agent",
+            "config": {"max_turns": 5, "escalation_threshold": 0.7},
         },
         {
-            'id': 'human_escalation',
-            'type': 'human_in_loop',
-            'condition': 'requires_escalation',
-            'config': {
-                'timeout': 3600,  # 1 hour
-                'priority': 'normal'
-            }
+            "id": "human_escalation",
+            "type": "human_in_loop",
+            "condition": "requires_escalation",
+            "config": {
+                "timeout": 3600,  # 1 hour
+                "priority": "normal",
+            },
         },
         {
-            'id': 'ticket_creation',
-            'type': 'data_persistence',
-            'config': {
-                'store_conversation': True,
-                'create_ticket': True
-            }
-        }
+            "id": "ticket_creation",
+            "type": "data_persistence",
+            "config": {"store_conversation": True, "create_ticket": True},
+        },
     ],
-    'metadata': {
-        'version': '1.0',
-        'created_by': 'ai_agent_framework'
-    }
+    "metadata": {"version": "1.0", "created_by": "ai_agent_framework"},
 }
 from src.sdk.agents import register_agent
 

@@ -1,1 +1,2 @@
-def register_policy(policy): pass
+def register_policy(policy):
+    pass

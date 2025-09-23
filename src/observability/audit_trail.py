@@ -1,6 +1,7 @@
 """
 Audit trail functionality for tracking agent execution history.
 """
+
 import json
 import logging
 from datetime import datetime
@@ -27,10 +28,7 @@ class AuditTrail:
         self.events: List[Dict[str, Any]] = []
 
     async def log_execution_start(
-        self,
-        execution_id: str,
-        input_data: Any,
-        context: Dict[str, Any]
+        self, execution_id: str, input_data: Any, context: Dict[str, Any]
     ) -> None:
         """Log the start of an execution."""
         event = {
@@ -39,15 +37,12 @@ class AuditTrail:
             "agent_id": self.agent_id,
             "timestamp": datetime.utcnow().isoformat(),
             "input_data": self._serialize_data(input_data),
-            "context": context
+            "context": context,
         }
         await self._log_event(event)
 
     async def log_execution_complete(
-        self,
-        execution_id: str,
-        output_data: Any,
-        duration: float
+        self, execution_id: str, output_data: Any, duration: float
     ) -> None:
         """Log successful completion of an execution."""
         event = {
@@ -56,15 +51,12 @@ class AuditTrail:
             "agent_id": self.agent_id,
             "timestamp": datetime.utcnow().isoformat(),
             "output_data": self._serialize_data(output_data),
-            "duration": duration
+            "duration": duration,
         }
         await self._log_event(event)
 
     async def log_execution_error(
-        self,
-        execution_id: str,
-        error: str,
-        duration: float
+        self, execution_id: str, error: str, duration: float
     ) -> None:
         """Log an execution error."""
         event = {
@@ -73,7 +65,7 @@ class AuditTrail:
             "agent_id": self.agent_id,
             "timestamp": datetime.utcnow().isoformat(),
             "error": error,
-            "duration": duration
+            "duration": duration,
         }
         await self._log_event(event)
 
@@ -83,7 +75,7 @@ class AuditTrail:
         tool_name: str,
         tool_input: Any,
         tool_output: Any,
-        duration: float
+        duration: float,
     ) -> None:
         """Log tool execution within an agent run."""
         event = {
@@ -94,15 +86,12 @@ class AuditTrail:
             "timestamp": datetime.utcnow().isoformat(),
             "tool_input": self._serialize_data(tool_input),
             "tool_output": self._serialize_data(tool_output),
-            "duration": duration
+            "duration": duration,
         }
         await self._log_event(event)
 
     async def log_policy_violation(
-        self,
-        execution_id: str,
-        policy_type: str,
-        violation_details: str
+        self, execution_id: str, policy_type: str, violation_details: str
     ) -> None:
         """Log a policy violation."""
         event = {
@@ -111,7 +100,7 @@ class AuditTrail:
             "agent_id": self.agent_id,
             "timestamp": datetime.utcnow().isoformat(),
             "policy_type": policy_type,
-            "violation_details": violation_details
+            "violation_details": violation_details,
         }
         await self._log_event(event)
 
@@ -148,7 +137,7 @@ class AuditTrail:
         self,
         event_type: Optional[str] = None,
         execution_id: Optional[str] = None,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Get audit events with optional filtering."""
         events = self.events
@@ -169,10 +158,23 @@ class AuditTrail:
         events = self.get_events(execution_id=execution_id)
 
         if not events:
-            return {"execution_id": execution_id, "events": [], "summary": "No events found"}
+            return {
+                "execution_id": execution_id,
+                "events": [],
+                "summary": "No events found",
+            }
 
-        start_event = next((e for e in events if e["event_type"] == "execution_start"), None)
-        end_event = next((e for e in events if e["event_type"] in ["execution_complete", "execution_error"]), None)
+        start_event = next(
+            (e for e in events if e["event_type"] == "execution_start"), None
+        )
+        end_event = next(
+            (
+                e
+                for e in events
+                if e["event_type"] in ["execution_complete", "execution_error"]
+            ),
+            None,
+        )
         tool_events = [e for e in events if e["event_type"] == "tool_execution"]
 
         summary = {
@@ -183,7 +185,7 @@ class AuditTrail:
             "status": end_event["event_type"] if end_event else "running",
             "tool_count": len(tool_events),
             "total_events": len(events),
-            "events": events
+            "events": events,
         }
 
         if end_event and "duration" in end_event:

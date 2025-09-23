@@ -1,6 +1,7 @@
 """
 Core agent base classes for the AI Agent Framework.
 """
+
 import asyncio
 import logging
 import uuid
@@ -17,6 +18,7 @@ from ..state_memory.session_memory import SessionMemory
 
 class AgentStatus(Enum):
     """Agent execution status."""
+
     IDLE = "idle"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -26,6 +28,7 @@ class AgentStatus(Enum):
 
 class AgentCapability(Enum):
     """Agent capabilities."""
+
     TEXT_PROCESSING = "text_processing"
     DOCUMENT_ANALYSIS = "document_analysis"
     DATA_EXTRACTION = "data_extraction"
@@ -49,7 +52,7 @@ class AgentBase(ABC):
         capabilities: List[AgentCapability] = None,
         config: Dict[str, Any] = None,
         memory_enabled: bool = True,
-        guardrails_enabled: bool = True
+        guardrails_enabled: bool = True,
     ):
         """
         Initialize the agent.
@@ -86,11 +89,7 @@ class AgentBase(ABC):
         self.logger.info(f"Agent '{self.name}' initialized with ID: {self.id}")
 
     @abstractmethod
-    async def execute(
-        self,
-        input_data: Any,
-        context: ExecutionContext
-    ) -> Any:
+    async def execute(self, input_data: Any, context: ExecutionContext) -> Any:
         """
         Execute the agent's main logic.
 
@@ -104,9 +103,7 @@ class AgentBase(ABC):
         pass
 
     async def run(
-        self,
-        input_data: Any,
-        context: Optional[ExecutionContext] = None
+        self, input_data: Any, context: Optional[ExecutionContext] = None
     ) -> Dict[str, Any]:
         """
         Run the agent with full lifecycle management.
@@ -134,7 +131,7 @@ class AgentBase(ABC):
             await self.audit_trail.log_execution_start(
                 execution_id=execution_id,
                 input_data=input_data,
-                context=context.to_dict()
+                context=context.to_dict(),
             )
 
             # Check guardrails if enabled
@@ -155,9 +152,7 @@ class AgentBase(ABC):
             # Update memory if enabled
             if self.memory:
                 await self.memory.store_interaction(
-                    input_data=input_data,
-                    output_data=output,
-                    context=context.to_dict()
+                    input_data=input_data, output_data=output, context=context.to_dict()
                 )
 
             self.status = AgentStatus.COMPLETED
@@ -168,10 +163,12 @@ class AgentBase(ABC):
             await self.audit_trail.log_execution_complete(
                 execution_id=execution_id,
                 output_data=output,
-                duration=execution_duration
+                duration=execution_duration,
             )
 
-            self.logger.info(f"Execution {execution_id} completed in {execution_duration:.2f}s")
+            self.logger.info(
+                f"Execution {execution_id} completed in {execution_duration:.2f}s"
+            )
 
             return {
                 "execution_id": execution_id,
@@ -179,7 +176,7 @@ class AgentBase(ABC):
                 "output": output,
                 "duration": execution_duration,
                 "agent_id": self.id,
-                "agent_name": self.name
+                "agent_name": self.name,
             }
 
         except Exception as e:
@@ -191,9 +188,7 @@ class AgentBase(ABC):
             # Log error
             self.logger.error(f"Execution {execution_id} failed: {str(e)}")
             await self.audit_trail.log_execution_error(
-                execution_id=execution_id,
-                error=str(e),
-                duration=execution_duration
+                execution_id=execution_id, error=str(e), duration=execution_duration
             )
 
             return {
@@ -202,7 +197,7 @@ class AgentBase(ABC):
                 "error": str(e),
                 "duration": execution_duration,
                 "agent_id": self.id,
-                "agent_name": self.name
+                "agent_name": self.name,
             }
 
     async def stop(self) -> None:
@@ -219,10 +214,12 @@ class AgentBase(ABC):
             "status": self.status.value,
             "capabilities": [cap.value for cap in self.capabilities],
             "created_at": self.created_at.isoformat(),
-            "last_executed": self.last_executed.isoformat() if self.last_executed else None,
+            "last_executed": self.last_executed.isoformat()
+            if self.last_executed
+            else None,
             "execution_count": self.execution_count,
             "error_count": self.error_count,
-            "error_rate": self.error_count / max(self.execution_count, 1) * 100
+            "error_rate": self.error_count / max(self.execution_count, 1) * 100,
         }
 
     async def get_memory_summary(self) -> Optional[Dict[str, Any]]:
@@ -234,6 +231,7 @@ class AgentBase(ABC):
 
 class PolicyViolationError(Exception):
     """Raised when agent input/output violates policies."""
+
     pass
 
 
@@ -252,17 +250,11 @@ class SimpleAgent(AgentBase):
             **kwargs: Additional agent configuration
         """
         super().__init__(
-            name=name,
-            capabilities=[AgentCapability.TEXT_PROCESSING],
-            **kwargs
+            name=name, capabilities=[AgentCapability.TEXT_PROCESSING], **kwargs
         )
         self.processor_func = processor_func or self._default_processor
 
-    async def execute(
-        self,
-        input_data: Any,
-        context: ExecutionContext
-    ) -> Any:
+    async def execute(self, input_data: Any, context: ExecutionContext) -> Any:
         """Execute the processor function."""
         return await self._run_processor(input_data, context)
 

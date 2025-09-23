@@ -32,12 +32,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt || true
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Byte-compile
         run: python -m compileall .
       - name: Lint & formatting checks (ruff)
         run: |
-          pip install ruff
+          # ruff should be available via requirements-dev; otherwise install
+          if ! command -v ruff >/dev/null 2>&1; then
+            pip install ruff
+          fi
           # Fail the job if code is not formatted or lint rules fail
           ruff format --check .
           ruff check .

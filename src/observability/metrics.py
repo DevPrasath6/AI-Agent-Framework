@@ -1,1 +1,2 @@
-def record(name, value, tags=None): pass
+def record(name, value, tags=None):
+    pass

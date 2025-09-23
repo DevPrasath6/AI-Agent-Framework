@@ -10,7 +10,11 @@ createsuper:
 	python django_app/manage.py createsuperuser
 
 lint:
-	flake8 src django_app
+	ruff check src django_app
 
 test:
 	pytest
+
+install-dev:
+	python -m pip install --upgrade pip; \
+	python -m pip install -r requirements-dev.txt

@@ -1,1 +1,2 @@
-def profile_model(model): pass
+def profile_model(model):
+    pass

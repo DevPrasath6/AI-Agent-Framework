@@ -1,1 +1,2 @@
-def allow(key): return True
+def allow(key):
+    return True

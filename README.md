@@ -67,3 +67,9 @@ High-Level Guidelines
 • Multi-agent collaboration, reflection loops, human-in-the-loop steps.
 
 ```
+
+
+Make the format-on-push workflow run on PRs too (not only pushes to main).
+Make ruff configuration explicit (pyproject.toml) with your preferred rules.
+Add pre-commit to requirements-dev.txt or to a developer make target.
+Revert or tweak any of the earlier helper files I added/removed (e.g., conftest.py, ai_framework shim) if you want a different test discovery approach.

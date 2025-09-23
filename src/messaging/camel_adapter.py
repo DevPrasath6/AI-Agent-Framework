@@ -1,2 +1,3 @@
 # Camel adapter placeholder
-def route(msg): print('Camel route')
+def route(msg):
+    print("Camel route")

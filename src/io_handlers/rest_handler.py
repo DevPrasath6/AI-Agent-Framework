@@ -1,1 +1,2 @@
-def handle_rest(request): return {'ok': True}
+def handle_rest(request):
+    return {"ok": True}

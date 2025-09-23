@@ -1,1 +1,2 @@
-def handle_cli(args): print('CLI handler')
+def handle_cli(args):
+    print("CLI handler")

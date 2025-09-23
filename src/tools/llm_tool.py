@@ -1,6 +1,7 @@
 """
 LLM tool for language model interactions and text generation.
 """
+
 import logging
 import time
 from typing import Any, Dict, List, Optional, Union
@@ -13,6 +14,7 @@ from ..core.execution_context import ExecutionContext
 @dataclass
 class LLMRequest:
     """Request structure for LLM interactions."""
+
     prompt: str
     max_tokens: Optional[int] = None
     temperature: Optional[float] = None
@@ -27,6 +29,7 @@ class LLMRequest:
 @dataclass
 class LLMResponse:
     """Response structure from LLM."""
+
     text: str
     model: str
     tokens_used: Optional[int] = None
@@ -54,7 +57,7 @@ class LLMTool(ToolBase):
         max_tokens: int = 1000,
         temperature: float = 0.7,
         timeout: int = 30,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize LLM tool.
@@ -74,7 +77,7 @@ class LLMTool(ToolBase):
             description=f"Language model tool using {model_name}",
             tool_type=ToolType.LLM,
             timeout=timeout,
-            **kwargs
+            **kwargs,
         )
 
         self.model_name = model_name
@@ -93,13 +96,11 @@ class LLMTool(ToolBase):
             "api_key": api_key,
             "base_url": base_url,
             "max_tokens": max_tokens,
-            "temperature": temperature
+            "temperature": temperature,
         }
 
     async def _execute_tool(
-        self,
-        payload: Any,
-        context: ExecutionContext
+        self, payload: Any, context: ExecutionContext
     ) -> LLMResponse:
         """Execute LLM generation."""
         # Parse input payload
@@ -128,7 +129,7 @@ class LLMTool(ToolBase):
                 max_tokens=payload.get("max_tokens", self.max_tokens),
                 temperature=payload.get("temperature", self.temperature),
                 system_message=payload.get("system_message"),
-                conversation_history=payload.get("conversation_history", [])
+                conversation_history=payload.get("conversation_history", []),
             )
 
         elif isinstance(payload, LLMRequest):
@@ -140,22 +141,32 @@ class LLMTool(ToolBase):
             return LLMRequest(prompt=str(payload))
 
     async def _generate_response(
-        self,
-        request: LLMRequest,
-        context: ExecutionContext
+        self, request: LLMRequest, context: ExecutionContext
     ) -> LLMResponse:
         """Generate response from LLM."""
         try:
             # Prefer provider selected via environment/configuration
             import os
-            provider_name = os.getenv('LLM_PROVIDER', None)
+
+            provider_name = os.getenv("LLM_PROVIDER", None)
             if provider_name:
                 try:
                     from .llm_providers import get_provider
+
                     provider = get_provider(provider_name)
                     if provider:
-                        out = await provider(request.prompt, max_tokens=request.max_tokens or self.max_tokens, temperature=request.temperature or self.temperature)
-                        return LLMResponse(text=out.get('text', ''), model=out.get('model', self.model_name), tokens_used=out.get('tokens_used'), finish_reason=out.get('finish_reason'), metadata=out)
+                        out = await provider(
+                            request.prompt,
+                            max_tokens=request.max_tokens or self.max_tokens,
+                            temperature=request.temperature or self.temperature,
+                        )
+                        return LLMResponse(
+                            text=out.get("text", ""),
+                            model=out.get("model", self.model_name),
+                            tokens_used=out.get("tokens_used"),
+                            finish_reason=out.get("finish_reason"),
+                            metadata=out,
+                        )
                 except Exception:
                     pass
 
@@ -176,7 +187,7 @@ class LLMTool(ToolBase):
                 text=f"Error: Unable to generate response - {str(e)}",
                 model=self.model_name,
                 finish_reason="error",
-                metadata={"error": str(e)}
+                metadata={"error": str(e)},
             )
 
     async def _call_openai_api(self, request: LLMRequest) -> LLMResponse:
@@ -190,17 +201,29 @@ class LLMTool(ToolBase):
 
         # Prefer provider adapter if available
         if openai_generate is not None:
-            out = await openai_generate(request.prompt, max_tokens=request.max_tokens or self.max_tokens,
-                                        temperature=request.temperature or self.temperature)
-            return LLMResponse(text=out.get('text', ''), model=out.get('model', self.model_name),
-                               tokens_used=out.get('tokens_used'), finish_reason=out.get('finish_reason'),
-                               metadata=out)
+            out = await openai_generate(
+                request.prompt,
+                max_tokens=request.max_tokens or self.max_tokens,
+                temperature=request.temperature or self.temperature,
+            )
+            return LLMResponse(
+                text=out.get("text", ""),
+                model=out.get("model", self.model_name),
+                tokens_used=out.get("tokens_used"),
+                finish_reason=out.get("finish_reason"),
+                metadata=out,
+            )
 
         # Fallback stub
         await self._simulate_api_delay()
         response_text = f"Generated response for prompt: {request.prompt[:50]}..."
-        return LLMResponse(text=response_text, model=self.model_name, tokens_used=len(response_text.split()),
-                           finish_reason="stop", metadata={"provider": "openai_stub"})
+        return LLMResponse(
+            text=response_text,
+            model=self.model_name,
+            tokens_used=len(response_text.split()),
+            finish_reason="stop",
+            metadata={"provider": "openai_stub"},
+        )
 
     async def _call_anthropic_api(self, request: LLMRequest) -> LLMResponse:
         """Call Anthropic API (stub implementation)."""
@@ -215,7 +238,7 @@ class LLMTool(ToolBase):
             model=self.model_name,
             tokens_used=len(response_text.split()),
             finish_reason="stop",
-            metadata={"provider": "anthropic"}
+            metadata={"provider": "anthropic"},
         )
 
     async def _call_local_llama(self, request: LLMRequest) -> LLMResponse:
@@ -231,7 +254,7 @@ class LLMTool(ToolBase):
             model=self.model_name,
             tokens_used=len(response_text.split()),
             finish_reason="stop",
-            metadata={"provider": "local_llama"}
+            metadata={"provider": "local_llama"},
         )
 
     async def _call_generic_api(self, request: LLMRequest) -> LLMResponse:
@@ -247,12 +270,13 @@ class LLMTool(ToolBase):
             model=self.model_name,
             tokens_used=len(response_text.split()),
             finish_reason="stop",
-            metadata={"provider": "generic"}
+            metadata={"provider": "generic"},
         )
 
     async def _simulate_api_delay(self) -> None:
         """Simulate API call delay."""
         import asyncio
+
         await asyncio.sleep(0.1)  # Simulate 100ms API delay
 
     def generate(self, prompt: str) -> Dict[str, str]:
@@ -267,15 +291,13 @@ class LLMTool(ToolBase):
         """
         # For legacy compatibility, return a stub response
         return {
-            'text': f'Stub response for: {prompt[:50]}...',
-            'model': self.model_name,
-            'tokens': str(len(prompt.split()) + 10)
+            "text": f"Stub response for: {prompt[:50]}...",
+            "model": self.model_name,
+            "tokens": str(len(prompt.split()) + 10),
         }
 
     async def generate_async(
-        self,
-        prompt: str,
-        context: Optional[ExecutionContext] = None
+        self, prompt: str, context: Optional[ExecutionContext] = None
     ) -> LLMResponse:
         """
         Async generation method.
@@ -303,7 +325,10 @@ class LLMTool(ToolBase):
             "average_tokens_per_request": avg_tokens,
             "model_name": self.model_name,
             "tool_executions": self.execution_count,
-            "success_rate": ((self.execution_count - self.error_count) / max(self.execution_count, 1)) * 100
+            "success_rate": (
+                (self.execution_count - self.error_count) / max(self.execution_count, 1)
+            )
+            * 100,
         }
 
 
@@ -329,7 +354,7 @@ class ConversationLLMTool(LLMTool):
         message: str,
         session_id: str = "default",
         system_message: Optional[str] = None,
-        context: Optional[ExecutionContext] = None
+        context: Optional[ExecutionContext] = None,
     ) -> LLMResponse:
         """
         Have a conversation with the LLM.
@@ -357,14 +382,12 @@ class ConversationLLMTool(LLMTool):
 
         # Trim history if too long
         if len(history) > self.max_history_length:
-            history = history[-self.max_history_length:]
+            history = history[-self.max_history_length :]
             self.conversation_histories[session_id] = history
 
         # Create request with conversation history
         request = LLMRequest(
-            prompt=message,
-            conversation_history=history,
-            system_message=system_message
+            prompt=message, conversation_history=history, system_message=system_message
         )
 
         # Generate response

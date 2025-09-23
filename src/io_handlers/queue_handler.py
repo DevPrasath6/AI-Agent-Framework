@@ -1,1 +1,2 @@
-def handle_message(msg): return True
+def handle_message(msg):
+    return True

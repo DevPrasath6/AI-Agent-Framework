@@ -9,6 +9,7 @@ This agent demonstrates:
 - Document classification
 - Integration with Intel OpenVINO for model optimization
 """
+
 import logging
 import os
 import mimetypes
@@ -18,7 +19,12 @@ from pathlib import Path
 
 from src.core.agent_base import AgentBase, AgentCapability
 from src.core.execution_context import ExecutionContext
-from src.core.workflow_base import WorkflowDefinition, WorkflowStep, StepType, SimpleDAGWorkflow
+from src.core.workflow_base import (
+    WorkflowDefinition,
+    WorkflowStep,
+    StepType,
+    SimpleDAGWorkflow,
+)
 from src.tools.llm_tool import LLMTool
 
 
@@ -34,7 +40,7 @@ class DocumentProcessingAgent(AgentBase):
         ocr_config: Optional[Dict[str, Any]] = None,
         supported_formats: Optional[List[str]] = None,
         output_formats: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize document processing agent.
@@ -54,23 +60,30 @@ class DocumentProcessingAgent(AgentBase):
                 AgentCapability.DOCUMENT_ANALYSIS,
                 AgentCapability.DATA_EXTRACTION,
                 AgentCapability.TEXT_PROCESSING,
-                AgentCapability.MULTI_MODAL
+                AgentCapability.MULTI_MODAL,
             ],
-            **kwargs
+            **kwargs,
         )
 
         # Initialize LLM tool for text analysis
-        self.llm_tool = LLMTool(
-            name="doc_analysis_llm",
-            **(llm_config or {})
-        )
+        self.llm_tool = LLMTool(name="doc_analysis_llm", **(llm_config or {}))
 
         # Configuration
         self.supported_formats = supported_formats or [
-            'pdf', 'docx', 'doc', 'txt', 'rtf', 'html', 'md',
-            'jpg', 'jpeg', 'png', 'tiff', 'bmp'
+            "pdf",
+            "docx",
+            "doc",
+            "txt",
+            "rtf",
+            "html",
+            "md",
+            "jpg",
+            "jpeg",
+            "png",
+            "tiff",
+            "bmp",
         ]
-        self.output_formats = output_formats or ['json', 'text', 'markdown', 'html']
+        self.output_formats = output_formats or ["json", "text", "markdown", "html"]
         self.ocr_config = ocr_config or {}
 
         # Processing statistics
@@ -82,9 +95,7 @@ class DocumentProcessingAgent(AgentBase):
         self.document_cache: Dict[str, Dict[str, Any]] = {}
 
     async def execute(
-        self,
-        input_data: Any,
-        context: ExecutionContext
+        self, input_data: Any, context: ExecutionContext
     ) -> Dict[str, Any]:
         """Execute document processing workflow."""
         # Parse document input
@@ -96,7 +107,7 @@ class DocumentProcessingAgent(AgentBase):
             return {
                 "status": "error",
                 "error": validation_result["error"],
-                "document_info": document_info
+                "document_info": document_info,
             }
 
         # Ingest document
@@ -114,7 +125,9 @@ class DocumentProcessingAgent(AgentBase):
         )
 
         # Generate summary and insights
-        summary_result = await self._generate_summary(text_extraction_result, analysis_result, context)
+        summary_result = await self._generate_summary(
+            text_extraction_result, analysis_result, context
+        )
 
         # Classify document
         classification_result = await self._classify_document(
@@ -129,7 +142,7 @@ class DocumentProcessingAgent(AgentBase):
             metadata_result,
             summary_result,
             classification_result,
-            context
+            context,
         )
 
         # Update statistics
@@ -150,27 +163,29 @@ class DocumentProcessingAgent(AgentBase):
             return {
                 "source": input_data,
                 "source_type": "file_path" if os.path.exists(input_data) else "url",
-                "document_id": Path(input_data).stem if os.path.exists(input_data) else None
+                "document_id": Path(input_data).stem
+                if os.path.exists(input_data)
+                else None,
             }
         elif isinstance(input_data, dict):
             return {
-                "source": input_data.get("source", input_data.get("file_path", input_data.get("url"))),
+                "source": input_data.get(
+                    "source", input_data.get("file_path", input_data.get("url"))
+                ),
                 "source_type": input_data.get("source_type", "unknown"),
                 "document_id": input_data.get("document_id"),
                 "metadata": input_data.get("metadata", {}),
-                "processing_options": input_data.get("processing_options", {})
+                "processing_options": input_data.get("processing_options", {}),
             }
         else:
             return {
                 "source": str(input_data),
                 "source_type": "raw_data",
-                "document_id": f"raw_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+                "document_id": f"raw_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
             }
 
     async def _validate_document(
-        self,
-        document_info: Dict[str, Any],
-        context: ExecutionContext
+        self, document_info: Dict[str, Any], context: ExecutionContext
     ) -> Dict[str, Any]:
         """Validate document format and accessibility."""
         source = document_info.get("source")
@@ -182,24 +197,30 @@ class DocumentProcessingAgent(AgentBase):
                 return {"valid": False, "error": f"File not found: {source}"}
 
             # Check file format
-            file_ext = Path(source).suffix.lower().lstrip('.')
+            file_ext = Path(source).suffix.lower().lstrip(".")
             if file_ext not in self.supported_formats:
                 return {
                     "valid": False,
-                    "error": f"Unsupported format: {file_ext}. Supported: {self.supported_formats}"
+                    "error": f"Unsupported format: {file_ext}. Supported: {self.supported_formats}",
                 }
 
             # Check file size (limit to 100MB for demonstration)
             file_size = os.path.getsize(source)
             if file_size > 100 * 1024 * 1024:
-                return {"valid": False, "error": f"File too large: {file_size} bytes (max 100MB)"}
+                return {
+                    "valid": False,
+                    "error": f"File too large: {file_size} bytes (max 100MB)",
+                }
 
-        return {"valid": True, "format": file_ext if document_info["source_type"] == "file_path" else "unknown"}
+        return {
+            "valid": True,
+            "format": file_ext
+            if document_info["source_type"] == "file_path"
+            else "unknown",
+        }
 
     async def _ingest_document(
-        self,
-        document_info: Dict[str, Any],
-        context: ExecutionContext
+        self, document_info: Dict[str, Any], context: ExecutionContext
     ) -> Dict[str, Any]:
         """Ingest document from various sources."""
         source = document_info["source"]
@@ -220,7 +241,9 @@ class DocumentProcessingAgent(AgentBase):
             context.add_error("document_ingestion_error", str(e))
             raise
 
-    async def _ingest_from_file(self, file_path: str, context: ExecutionContext) -> Dict[str, Any]:
+    async def _ingest_from_file(
+        self, file_path: str, context: ExecutionContext
+    ) -> Dict[str, Any]:
         """Ingest document from file system."""
         file_path = Path(file_path)
 
@@ -236,25 +259,27 @@ class DocumentProcessingAgent(AgentBase):
             "file_extension": file_path.suffix.lower(),
             "created_at": datetime.fromtimestamp(stat.st_ctime).isoformat(),
             "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            "ingestion_timestamp": datetime.utcnow().isoformat()
+            "ingestion_timestamp": datetime.utcnow().isoformat(),
         }
 
         # Read file content based on type
-        if file_path.suffix.lower() in ['.txt', '.md', '.html', '.rtf']:
+        if file_path.suffix.lower() in [".txt", ".md", ".html", ".rtf"]:
             # Text-based files
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 ingestion_result["raw_content"] = f.read()
                 ingestion_result["content_type"] = "text"
         else:
             # Binary files (PDFs, images, etc.)
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 ingestion_result["raw_content"] = f.read()
                 ingestion_result["content_type"] = "binary"
 
         context.add_intermediate_result("document_ingestion", ingestion_result)
         return ingestion_result
 
-    async def _ingest_from_url(self, url: str, context: ExecutionContext) -> Dict[str, Any]:
+    async def _ingest_from_url(
+        self, url: str, context: ExecutionContext
+    ) -> Dict[str, Any]:
         """Ingest document from URL (stub implementation)."""
         # This is a stub implementation
         # In practice, you would use aiohttp or similar to fetch the document
@@ -264,23 +289,23 @@ class DocumentProcessingAgent(AgentBase):
             "content_type": "url",
             "ingestion_timestamp": datetime.utcnow().isoformat(),
             "raw_content": f"Stub content from URL: {url}",
-            "note": "URL ingestion not fully implemented in this demo"
+            "note": "URL ingestion not fully implemented in this demo",
         }
 
-    async def _ingest_raw_data(self, raw_data: str, context: ExecutionContext) -> Dict[str, Any]:
+    async def _ingest_raw_data(
+        self, raw_data: str, context: ExecutionContext
+    ) -> Dict[str, Any]:
         """Ingest raw text data."""
         return {
             "source": "raw_input",
             "content_type": "text",
             "raw_content": raw_data,
             "ingestion_timestamp": datetime.utcnow().isoformat(),
-            "file_size": len(raw_data.encode('utf-8'))
+            "file_size": len(raw_data.encode("utf-8")),
         }
 
     async def _extract_text(
-        self,
-        ingestion_result: Dict[str, Any],
-        context: ExecutionContext
+        self, ingestion_result: Dict[str, Any], context: ExecutionContext
     ) -> Dict[str, Any]:
         """Extract text content from ingested document."""
         content_type = ingestion_result["content_type"]
@@ -296,15 +321,21 @@ class DocumentProcessingAgent(AgentBase):
             file_ext = ingestion_result.get("file_extension", "").lower()
 
             if file_ext == ".pdf":
-                extracted_text, page_count = await self._extract_from_pdf(raw_content, context)
+                extracted_text, page_count = await self._extract_from_pdf(
+                    raw_content, context
+                )
             elif file_ext in [".jpg", ".jpeg", ".png", ".tiff", ".bmp"]:
-                extracted_text, page_count = await self._extract_from_image(raw_content, context)
+                extracted_text, page_count = await self._extract_from_image(
+                    raw_content, context
+                )
             elif file_ext in [".docx", ".doc"]:
-                extracted_text, page_count = await self._extract_from_word(raw_content, context)
+                extracted_text, page_count = await self._extract_from_word(
+                    raw_content, context
+                )
             else:
                 # Fallback: try to decode as text
                 try:
-                    extracted_text = raw_content.decode('utf-8', errors='ignore')
+                    extracted_text = raw_content.decode("utf-8", errors="ignore")
                     page_count = 1
                 except:
                     extracted_text = "Unable to extract text from this document format"
@@ -319,40 +350,46 @@ class DocumentProcessingAgent(AgentBase):
             "word_count": len(extracted_text.split()) if extracted_text else 0,
             "character_count": len(extracted_text) if extracted_text else 0,
             "extraction_timestamp": datetime.utcnow().isoformat(),
-            "extraction_method": self._get_extraction_method(ingestion_result)
+            "extraction_method": self._get_extraction_method(ingestion_result),
         }
 
         context.add_intermediate_result("text_extraction", result)
         return result
 
-    async def _extract_from_pdf(self, pdf_content: bytes, context: ExecutionContext) -> tuple:
+    async def _extract_from_pdf(
+        self, pdf_content: bytes, context: ExecutionContext
+    ) -> tuple:
         """Extract text from PDF (stub implementation)."""
         # This is a stub implementation
         # In practice, you would use PyPDF2, pdfplumber, or similar
 
         return (
             f"Extracted text from PDF ({len(pdf_content)} bytes)\n[PDF extraction not fully implemented]",
-            1  # page count
+            1,  # page count
         )
 
-    async def _extract_from_image(self, image_content: bytes, context: ExecutionContext) -> tuple:
+    async def _extract_from_image(
+        self, image_content: bytes, context: ExecutionContext
+    ) -> tuple:
         """Extract text from image using OCR (stub implementation)."""
         # This is a stub implementation
         # In practice, you would use Tesseract, EasyOCR, or Intel OpenVINO OCR models
 
         return (
             f"OCR extracted text from image ({len(image_content)} bytes)\n[OCR extraction not fully implemented]",
-            1  # page count
+            1,  # page count
         )
 
-    async def _extract_from_word(self, doc_content: bytes, context: ExecutionContext) -> tuple:
+    async def _extract_from_word(
+        self, doc_content: bytes, context: ExecutionContext
+    ) -> tuple:
         """Extract text from Word document (stub implementation)."""
         # This is a stub implementation
         # In practice, you would use python-docx or similar
 
         return (
             f"Extracted text from Word document ({len(doc_content)} bytes)\n[Word extraction not fully implemented]",
-            1  # page count
+            1,  # page count
         )
 
     def _clean_text(self, text: str) -> str:
@@ -362,7 +399,7 @@ class DocumentProcessingAgent(AgentBase):
 
         # Basic text cleaning
         text = text.strip()
-        text = ' '.join(text.split())  # Normalize whitespace
+        text = " ".join(text.split())  # Normalize whitespace
 
         return text
 
@@ -383,9 +420,7 @@ class DocumentProcessingAgent(AgentBase):
             return "fallback_decode"
 
     async def _analyze_content(
-        self,
-        text_extraction_result: Dict[str, Any],
-        context: ExecutionContext
+        self, text_extraction_result: Dict[str, Any], context: ExecutionContext
     ) -> Dict[str, Any]:
         """Analyze extracted text content."""
         extracted_text = text_extraction_result["extracted_text"]
@@ -393,7 +428,7 @@ class DocumentProcessingAgent(AgentBase):
         if not extracted_text or len(extracted_text.strip()) == 0:
             return {
                 "status": "no_content",
-                "analysis": "No text content available for analysis"
+                "analysis": "No text content available for analysis",
             }
 
         # Basic content analysis
@@ -404,7 +439,7 @@ class DocumentProcessingAgent(AgentBase):
             "entities": self._extract_entities(extracted_text),
             "content_structure": self._analyze_structure(extracted_text),
             "readability": self._calculate_readability(extracted_text),
-            "analysis_timestamp": datetime.utcnow().isoformat()
+            "analysis_timestamp": datetime.utcnow().isoformat(),
         }
 
         context.add_intermediate_result("content_analysis", analysis)
@@ -413,9 +448,20 @@ class DocumentProcessingAgent(AgentBase):
     def _detect_language(self, text: str) -> str:
         """Detect document language (simplified implementation)."""
         # Simple language detection based on common words
-        english_words = ['the', 'and', 'is', 'in', 'to', 'of', 'a', 'that', 'it', 'with']
-        spanish_words = ['el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no']
-        french_words = ['le', 'de', 'et', 'à', 'un', 'il', 'être', 'et', 'en', 'avoir']
+        english_words = [
+            "the",
+            "and",
+            "is",
+            "in",
+            "to",
+            "of",
+            "a",
+            "that",
+            "it",
+            "with",
+        ]
+        spanish_words = ["el", "la", "de", "que", "y", "en", "un", "es", "se", "no"]
+        french_words = ["le", "de", "et", "à", "un", "il", "être", "et", "en", "avoir"]
 
         text_lower = text.lower()
 
@@ -432,8 +478,24 @@ class DocumentProcessingAgent(AgentBase):
 
     def _analyze_sentiment(self, text: str) -> Dict[str, Any]:
         """Analyze document sentiment (simplified implementation)."""
-        positive_words = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'positive', 'success']
-        negative_words = ['bad', 'terrible', 'awful', 'horrible', 'negative', 'failure', 'problem']
+        positive_words = [
+            "good",
+            "great",
+            "excellent",
+            "amazing",
+            "wonderful",
+            "positive",
+            "success",
+        ]
+        negative_words = [
+            "bad",
+            "terrible",
+            "awful",
+            "horrible",
+            "negative",
+            "failure",
+            "problem",
+        ]
 
         text_lower = text.lower()
         positive_count = sum(1 for word in positive_words if word in text_lower)
@@ -457,7 +519,7 @@ class DocumentProcessingAgent(AgentBase):
             "polarity": polarity,
             "score": score,
             "positive_words": positive_count,
-            "negative_words": negative_count
+            "negative_words": negative_count,
         }
 
     def _extract_key_phrases(self, text: str) -> List[str]:
@@ -467,7 +529,39 @@ class DocumentProcessingAgent(AgentBase):
         word_freq = {}
 
         # Count word frequency (ignore common words)
-        stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'}
+        stop_words = {
+            "the",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+        }
 
         for word in words:
             word = word.strip('.,!?;:"()[]{}')
@@ -486,19 +580,19 @@ class DocumentProcessingAgent(AgentBase):
         entities = []
 
         # Email addresses
-        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
         emails = re.findall(email_pattern, text)
         for email in emails:
             entities.append({"text": email, "type": "email"})
 
         # Phone numbers (basic pattern)
-        phone_pattern = r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'
+        phone_pattern = r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"
         phones = re.findall(phone_pattern, text)
         for phone in phones:
             entities.append({"text": phone, "type": "phone"})
 
         # Dates (basic pattern)
-        date_pattern = r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b'
+        date_pattern = r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"
         dates = re.findall(date_pattern, text)
         for date in dates:
             entities.append({"text": date, "type": "date"})
@@ -507,20 +601,23 @@ class DocumentProcessingAgent(AgentBase):
 
     def _analyze_structure(self, text: str) -> Dict[str, Any]:
         """Analyze document structure."""
-        lines = text.split('\n')
+        lines = text.split("\n")
 
         return {
             "total_lines": len(lines),
             "non_empty_lines": len([line for line in lines if line.strip()]),
-            "average_line_length": sum(len(line) for line in lines) / max(len(lines), 1),
+            "average_line_length": sum(len(line) for line in lines)
+            / max(len(lines), 1),
             "has_headings": any(line.strip().isupper() for line in lines),
-            "has_bullet_points": any(line.strip().startswith(('•', '-', '*', '1.', '2.')) for line in lines)
+            "has_bullet_points": any(
+                line.strip().startswith(("•", "-", "*", "1.", "2.")) for line in lines
+            ),
         }
 
     def _calculate_readability(self, text: str) -> Dict[str, Any]:
         """Calculate basic readability metrics."""
         words = text.split()
-        sentences = text.split('.')
+        sentences = text.split(".")
 
         if not words or not sentences:
             return {"score": 0, "level": "unreadable"}
@@ -529,7 +626,9 @@ class DocumentProcessingAgent(AgentBase):
         avg_chars_per_word = sum(len(word) for word in words) / len(words)
 
         # Simple readability score (0-100)
-        readability_score = max(0, min(100, 100 - (avg_words_per_sentence * 2) - (avg_chars_per_word * 5)))
+        readability_score = max(
+            0, min(100, 100 - (avg_words_per_sentence * 2) - (avg_chars_per_word * 5))
+        )
 
         if readability_score >= 80:
             level = "very_easy"
@@ -546,7 +645,7 @@ class DocumentProcessingAgent(AgentBase):
             "score": readability_score,
             "level": level,
             "avg_words_per_sentence": avg_words_per_sentence,
-            "avg_chars_per_word": avg_chars_per_word
+            "avg_chars_per_word": avg_chars_per_word,
         }
 
     async def _extract_metadata(
@@ -554,7 +653,7 @@ class DocumentProcessingAgent(AgentBase):
         document_info: Dict[str, Any],
         text_extraction_result: Dict[str, Any],
         analysis_result: Dict[str, Any],
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Dict[str, Any]:
         """Extract document metadata."""
         metadata = {
@@ -565,19 +664,19 @@ class DocumentProcessingAgent(AgentBase):
                 "name": document_info.get("file_name"),
                 "size": document_info.get("file_size"),
                 "extension": document_info.get("file_extension"),
-                "mime_type": document_info.get("mime_type")
+                "mime_type": document_info.get("mime_type"),
             },
             "content_metrics": {
                 "page_count": text_extraction_result.get("page_count", 0),
                 "word_count": text_extraction_result.get("word_count", 0),
                 "character_count": text_extraction_result.get("character_count", 0),
-                "language": analysis_result.get("language_detected", "unknown")
+                "language": analysis_result.get("language_detected", "unknown"),
             },
             "processing_info": {
                 "extraction_method": text_extraction_result.get("extraction_method"),
                 "agent_name": self.name,
-                "processing_version": "1.0"
-            }
+                "processing_version": "1.0",
+            },
         }
 
         context.add_intermediate_result("metadata_extraction", metadata)
@@ -587,7 +686,7 @@ class DocumentProcessingAgent(AgentBase):
         self,
         text_extraction_result: Dict[str, Any],
         analysis_result: Dict[str, Any],
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Dict[str, Any]:
         """Generate document summary using LLM."""
         extracted_text = text_extraction_result["extracted_text"]
@@ -596,7 +695,7 @@ class DocumentProcessingAgent(AgentBase):
             return {
                 "summary": "No content available for summarization",
                 "key_points": [],
-                "summary_length": 0
+                "summary_length": 0,
             }
 
         # Use LLM to generate summary
@@ -636,7 +735,7 @@ TOPICS: [main topics]"""
             "topics": summary_parts.get("topics", []),
             "summary_length": len(summary_parts.get("summary", "")),
             "generation_method": "llm" if "summary" in summary_parts else "extractive",
-            "generation_timestamp": datetime.utcnow().isoformat()
+            "generation_timestamp": datetime.utcnow().isoformat(),
         }
 
         context.add_intermediate_result("summary_generation", result)
@@ -644,48 +743,44 @@ TOPICS: [main topics]"""
 
     def _parse_summary_response(self, response: str) -> Dict[str, Any]:
         """Parse LLM summary response."""
-        lines = response.split('\n')
+        lines = response.split("\n")
         result = {}
         current_section = None
 
         for line in lines:
             line = line.strip()
-            if line.startswith('SUMMARY:'):
-                result['summary'] = line[8:].strip()
-            elif line.startswith('KEY POINTS:'):
-                current_section = 'key_points'
-                result['key_points'] = []
-            elif line.startswith('TOPICS:'):
-                result['topics'] = [topic.strip() for topic in line[7:].split(',')]
-            elif line.startswith('-') and current_section == 'key_points':
-                result['key_points'].append(line[1:].strip())
+            if line.startswith("SUMMARY:"):
+                result["summary"] = line[8:].strip()
+            elif line.startswith("KEY POINTS:"):
+                current_section = "key_points"
+                result["key_points"] = []
+            elif line.startswith("TOPICS:"):
+                result["topics"] = [topic.strip() for topic in line[7:].split(",")]
+            elif line.startswith("-") and current_section == "key_points":
+                result["key_points"].append(line[1:].strip())
 
         return result
 
     def _generate_extractive_summary(self, text: str) -> Dict[str, Any]:
         """Generate extractive summary as fallback."""
-        sentences = text.split('.')
+        sentences = text.split(".")
 
         # Take first 2 sentences as summary
-        summary = '. '.join(sentences[:2]).strip()
-        if summary and not summary.endswith('.'):
-            summary += '.'
+        summary = ". ".join(sentences[:2]).strip()
+        if summary and not summary.endswith("."):
+            summary += "."
 
         # Extract key phrases as key points
         key_phrases = self._extract_key_phrases(text)
         key_points = [f"Mentions {phrase}" for phrase in key_phrases[:3]]
 
-        return {
-            "summary": summary,
-            "key_points": key_points,
-            "topics": key_phrases[:5]
-        }
+        return {"summary": summary, "key_points": key_points, "topics": key_phrases[:5]}
 
     async def _classify_document(
         self,
         text_extraction_result: Dict[str, Any],
         analysis_result: Dict[str, Any],
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Dict[str, Any]:
         """Classify document type and category."""
         extracted_text = text_extraction_result["extracted_text"]
@@ -695,7 +790,9 @@ TOPICS: [main topics]"""
         classification = self._rule_based_classification(extracted_text, key_phrases)
 
         # Confidence scoring
-        confidence = self._calculate_classification_confidence(extracted_text, classification)
+        confidence = self._calculate_classification_confidence(
+            extracted_text, classification
+        )
 
         result = {
             "document_type": classification["type"],
@@ -703,75 +800,105 @@ TOPICS: [main topics]"""
             "subcategory": classification.get("subcategory"),
             "confidence": confidence,
             "classification_features": classification.get("features", []),
-            "classification_timestamp": datetime.utcnow().isoformat()
+            "classification_timestamp": datetime.utcnow().isoformat(),
         }
 
         context.add_intermediate_result("document_classification", result)
         return result
 
-    def _rule_based_classification(self, text: str, key_phrases: List[str]) -> Dict[str, Any]:
+    def _rule_based_classification(
+        self, text: str, key_phrases: List[str]
+    ) -> Dict[str, Any]:
         """Classify document using rule-based approach."""
         text_lower = text.lower()
 
         # Contract/Legal documents
-        if any(term in text_lower for term in ['contract', 'agreement', 'terms', 'conditions', 'legal']):
+        if any(
+            term in text_lower
+            for term in ["contract", "agreement", "terms", "conditions", "legal"]
+        ):
             return {
                 "type": "legal",
                 "category": "contract",
-                "features": ["legal_terms", "formal_language"]
+                "features": ["legal_terms", "formal_language"],
             }
 
         # Financial documents
-        if any(term in text_lower for term in ['invoice', 'payment', 'financial', 'account', 'balance']):
+        if any(
+            term in text_lower
+            for term in ["invoice", "payment", "financial", "account", "balance"]
+        ):
             return {
                 "type": "financial",
                 "category": "accounting",
-                "features": ["financial_terms", "numerical_data"]
+                "features": ["financial_terms", "numerical_data"],
             }
 
         # Technical documentation
-        if any(term in text_lower for term in ['api', 'function', 'class', 'method', 'documentation']):
+        if any(
+            term in text_lower
+            for term in ["api", "function", "class", "method", "documentation"]
+        ):
             return {
                 "type": "technical",
                 "category": "documentation",
-                "features": ["technical_terms", "code_references"]
+                "features": ["technical_terms", "code_references"],
             }
 
         # Academic/Research papers
-        if any(term in text_lower for term in ['abstract', 'methodology', 'conclusion', 'references', 'research']):
+        if any(
+            term in text_lower
+            for term in [
+                "abstract",
+                "methodology",
+                "conclusion",
+                "references",
+                "research",
+            ]
+        ):
             return {
                 "type": "academic",
                 "category": "research",
-                "features": ["academic_structure", "citations"]
+                "features": ["academic_structure", "citations"],
             }
 
         # Reports
-        if any(term in text_lower for term in ['report', 'analysis', 'findings', 'summary', 'executive']):
+        if any(
+            term in text_lower
+            for term in ["report", "analysis", "findings", "summary", "executive"]
+        ):
             return {
                 "type": "business",
                 "category": "report",
-                "features": ["structured_content", "analytical_language"]
+                "features": ["structured_content", "analytical_language"],
             }
 
         # Default classification
         return {
             "type": "general",
             "category": "document",
-            "features": ["general_content"]
+            "features": ["general_content"],
         }
 
-    def _calculate_classification_confidence(self, text: str, classification: Dict[str, Any]) -> float:
+    def _calculate_classification_confidence(
+        self, text: str, classification: Dict[str, Any]
+    ) -> float:
         """Calculate confidence score for classification."""
         # Simple confidence calculation based on feature presence
         features = classification.get("features", [])
         text_lower = text.lower()
 
         feature_keywords = {
-            "legal_terms": ['contract', 'agreement', 'party', 'hereby', 'whereas'],
-            "financial_terms": ['amount', 'payment', 'invoice', 'account', 'balance'],
-            "technical_terms": ['function', 'method', 'class', 'variable', 'parameter'],
-            "academic_structure": ['abstract', 'introduction', 'methodology', 'conclusion'],
-            "formal_language": ['shall', 'whereas', 'hereby', 'therefore', 'pursuant']
+            "legal_terms": ["contract", "agreement", "party", "hereby", "whereas"],
+            "financial_terms": ["amount", "payment", "invoice", "account", "balance"],
+            "technical_terms": ["function", "method", "class", "variable", "parameter"],
+            "academic_structure": [
+                "abstract",
+                "introduction",
+                "methodology",
+                "conclusion",
+            ],
+            "formal_language": ["shall", "whereas", "hereby", "therefore", "pursuant"],
         }
 
         total_keywords = 0
@@ -781,7 +908,9 @@ TOPICS: [main topics]"""
             if feature in feature_keywords:
                 keywords = feature_keywords[feature]
                 total_keywords += len(keywords)
-                found_keywords += sum(1 for keyword in keywords if keyword in text_lower)
+                found_keywords += sum(
+                    1 for keyword in keywords if keyword in text_lower
+                )
 
         if total_keywords == 0:
             return 0.5  # Default confidence
@@ -796,7 +925,7 @@ TOPICS: [main topics]"""
         metadata_result: Dict[str, Any],
         summary_result: Dict[str, Any],
         classification_result: Dict[str, Any],
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Dict[str, Any]:
         """Format final output."""
         return {
@@ -810,7 +939,7 @@ TOPICS: [main topics]"""
                 "key_phrases": analysis_result.get("key_phrases", []),
                 "entities": analysis_result.get("entities", []),
                 "structure": analysis_result.get("content_structure"),
-                "readability": analysis_result.get("readability")
+                "readability": analysis_result.get("readability"),
             },
             "summary": summary_result,
             "classification": classification_result,
@@ -818,13 +947,13 @@ TOPICS: [main topics]"""
                 "page_count": text_extraction_result.get("page_count", 0),
                 "word_count": text_extraction_result.get("word_count", 0),
                 "character_count": text_extraction_result.get("character_count", 0),
-                "processing_time": context.get_execution_duration()
+                "processing_time": context.get_execution_duration(),
             },
             "agent_info": {
                 "agent_name": self.name,
                 "agent_version": "1.0",
-                "processing_timestamp": datetime.utcnow().isoformat()
-            }
+                "processing_timestamp": datetime.utcnow().isoformat(),
+            },
         }
 
     def get_processing_stats(self) -> Dict[str, Any]:
@@ -833,10 +962,15 @@ TOPICS: [main topics]"""
             "documents_processed": self.documents_processed,
             "total_pages_processed": self.total_pages_processed,
             "processing_errors": self.processing_errors,
-            "success_rate": ((self.documents_processed - self.processing_errors) / max(self.documents_processed, 1)) * 100,
-            "average_pages_per_document": self.total_pages_processed / max(self.documents_processed, 1),
+            "success_rate": (
+                (self.documents_processed - self.processing_errors)
+                / max(self.documents_processed, 1)
+            )
+            * 100,
+            "average_pages_per_document": self.total_pages_processed
+            / max(self.documents_processed, 1),
             "supported_formats": self.supported_formats,
-            "cached_documents": len(self.document_cache)
+            "cached_documents": len(self.document_cache),
         }
 
 
@@ -854,7 +988,7 @@ def create_document_processing_workflow() -> SimpleDAGWorkflow:
                 name="Document Ingestion",
                 step_type=StepType.AGENT,
                 config={"agent_name": "document_processing_agent"},
-                dependencies=[]
+                dependencies=[],
             ),
             WorkflowStep(
                 id="ocr",
@@ -862,10 +996,10 @@ def create_document_processing_workflow() -> SimpleDAGWorkflow:
                 step_type=StepType.TOOL,
                 config={
                     "tool_name": "ocr_tool",
-                    "tool_params": {"language": "eng", "confidence_threshold": 0.8}
+                    "tool_params": {"language": "eng", "confidence_threshold": 0.8},
                 },
                 dependencies=["ingest"],
-                condition="input.get('requires_ocr', False)"
+                condition="input.get('requires_ocr', False)",
             ),
             WorkflowStep(
                 id="summarize",
@@ -873,106 +1007,104 @@ def create_document_processing_workflow() -> SimpleDAGWorkflow:
                 step_type=StepType.TOOL,
                 config={
                     "tool_name": "llm_tool",
-                    "tool_params": {"task": "summarization", "max_length": 500}
+                    "tool_params": {"task": "summarization", "max_length": 500},
                 },
-                dependencies=["ocr"]
+                dependencies=["ocr"],
             ),
             WorkflowStep(
                 id="classify",
                 name="Document Classification",
                 step_type=StepType.AGENT,
                 config={"agent_name": "document_processing_agent"},
-                dependencies=["summarize"]
-            )
+                dependencies=["summarize"],
+            ),
         ],
         metadata={
             "version": "1.0",
             "author": "AI Agent Framework",
-            "tags": ["document_processing", "ocr", "nlp", "classification"]
-        }
+            "tags": ["document_processing", "ocr", "nlp", "classification"],
+        },
     )
 
     # Create agent registry
-    agent_registry = {
-        "document_processing_agent": DocumentProcessingAgent()
-    }
+    agent_registry = {"document_processing_agent": DocumentProcessingAgent()}
 
     # Create tool registry
     tool_registry = {
         "ocr_tool": lambda input_data, context, **kwargs: {
             "extracted_text": f"OCR result for: {str(input_data)[:100]}...",
-            "confidence": 0.95
+            "confidence": 0.95,
         },
         "llm_tool": lambda input_data, context, **kwargs: {
             "summary": f"Summary of: {str(input_data)[:200]}...",
-            "key_points": ["Point 1", "Point 2", "Point 3"]
-        }
+            "key_points": ["Point 1", "Point 2", "Point 3"],
+        },
     }
 
     return SimpleDAGWorkflow(
         definition=workflow_definition,
         agent_registry=agent_registry,
-        tool_registry=tool_registry
+        tool_registry=tool_registry,
     )
 
 
 # Example usage and flow definition for legacy compatibility
 flow = {
-    'flow_id': 'doc_processing_v1',
-    'description': 'Document processing flow with OCR, analysis, and summarization',
-    'tasks': [
+    "flow_id": "doc_processing_v1",
+    "description": "Document processing flow with OCR, analysis, and summarization",
+    "tasks": [
         {
-            'id': 'ingest',
-            'action': 'http_ingest',
-            'config': {
-                'supported_formats': ['pdf', 'docx', 'jpg', 'png'],
-                'max_file_size': '100MB'
-            }
+            "id": "ingest",
+            "action": "http_ingest",
+            "config": {
+                "supported_formats": ["pdf", "docx", "jpg", "png"],
+                "max_file_size": "100MB",
+            },
         },
         {
-            'id': 'ocr',
-            'depends_on': ['ingest'],
-            'action': 'ocr_tool',
-            'config': {
-                'engine': 'tesseract',
-                'language': 'eng',
-                'openvino_optimization': True
-            }
+            "id": "ocr",
+            "depends_on": ["ingest"],
+            "action": "ocr_tool",
+            "config": {
+                "engine": "tesseract",
+                "language": "eng",
+                "openvino_optimization": True,
+            },
         },
         {
-            'id': 'summarize',
-            'depends_on': ['ocr'],
-            'action': 'llm_tool',
-            'config': {
-                'model': 'gpt-3.5-turbo',
-                'task': 'summarization',
-                'max_tokens': 500
-            }
+            "id": "summarize",
+            "depends_on": ["ocr"],
+            "action": "llm_tool",
+            "config": {
+                "model": "gpt-3.5-turbo",
+                "task": "summarization",
+                "max_tokens": 500,
+            },
         },
         {
-            'id': 'classify',
-            'depends_on': ['summarize'],
-            'action': 'classification_tool',
-            'config': {
-                'categories': ['legal', 'financial', 'technical', 'academic', 'general']
-            }
+            "id": "classify",
+            "depends_on": ["summarize"],
+            "action": "classification_tool",
+            "config": {
+                "categories": ["legal", "financial", "technical", "academic", "general"]
+            },
         },
         {
-            'id': 'store_results',
-            'depends_on': ['classify'],
-            'action': 'data_persistence',
-            'config': {
-                'store_original': True,
-                'store_extracted_text': True,
-                'store_analysis': True
-            }
-        }
+            "id": "store_results",
+            "depends_on": ["classify"],
+            "action": "data_persistence",
+            "config": {
+                "store_original": True,
+                "store_extracted_text": True,
+                "store_analysis": True,
+            },
+        },
     ],
-    'metadata': {
-        'version': '1.0',
-        'created_by': 'ai_agent_framework',
-        'intel_optimizations': ['openvino_ocr', 'openvino_classification']
-    }
+    "metadata": {
+        "version": "1.0",
+        "created_by": "ai_agent_framework",
+        "intel_optimizations": ["openvino_ocr", "openvino_classification"],
+    },
 }
 
 from src.sdk.agents import register_agent

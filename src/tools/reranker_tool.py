@@ -1,2 +1,3 @@
 class RerankerTool:
-    def rerank(self, candidates): return candidates
+    def rerank(self, candidates):
+        return candidates

@@ -1,4 +1,4 @@
-def create_celery_app(name='ai_agent_framework'):
+def create_celery_app(name="ai_agent_framework"):
     # Import Celery lazily to avoid import-time dependency on Celery during
     # Django test discovery or when the package is not available.
     try:
@@ -10,23 +10,24 @@ def create_celery_app(name='ai_agent_framework'):
     # during test collection). Prefer environment variables or defaults.
     import os
 
-    broker = os.environ.get('CELERY_BROKER_URL', None)
-    backend = os.environ.get('CELERY_RESULT_BACKEND', None)
+    broker = os.environ.get("CELERY_BROKER_URL", None)
+    backend = os.environ.get("CELERY_RESULT_BACKEND", None)
     if broker is None or backend is None:
         # Only try to read Django settings if a settings module is configured
-        if os.environ.get('DJANGO_SETTINGS_MODULE'):
+        if os.environ.get("DJANGO_SETTINGS_MODULE"):
             try:
                 from django.conf import settings
+
                 if broker is None:
-                    broker = getattr(settings, 'CELERY_BROKER_URL', None)
+                    broker = getattr(settings, "CELERY_BROKER_URL", None)
                 if backend is None:
-                    backend = getattr(settings, 'CELERY_RESULT_BACKEND', None)
+                    backend = getattr(settings, "CELERY_RESULT_BACKEND", None)
             except Exception:
                 # Fall through to defaults
                 pass
 
     if not broker:
-        broker = 'redis://localhost:6379/0'
+        broker = "redis://localhost:6379/0"
     if not backend:
         backend = broker
     if Celery is None:
@@ -43,7 +44,13 @@ def create_celery_app(name='ai_agent_framework'):
 
     app = Celery(name, broker=broker, backend=backend)
     # Minimal config: allow tasks to be discovered in this package
-    app.conf.update({'task_serializer': 'json', 'accept_content': ['json'], 'result_serializer': 'json'})
+    app.conf.update(
+        {
+            "task_serializer": "json",
+            "accept_content": ["json"],
+            "result_serializer": "json",
+        }
+    )
     return app
 
 

@@ -1,1 +1,2 @@
-def filter_content(text): return text
+def filter_content(text):
+    return text

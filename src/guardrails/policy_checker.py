@@ -1,6 +1,7 @@
 """
 Policy checking and guardrails for agent execution.
 """
+
 import re
 import logging
 from typing import Any, Dict, List, Optional, Set
@@ -10,6 +11,7 @@ from enum import Enum
 
 class PolicyType(Enum):
     """Types of policies that can be enforced."""
+
     CONTENT_FILTER = "content_filter"
     DATA_PRIVACY = "data_privacy"
     RATE_LIMIT = "rate_limit"
@@ -21,6 +23,7 @@ class PolicyType(Enum):
 @dataclass
 class PolicyResult:
     """Result of a policy check."""
+
     allowed: bool
     policy_type: PolicyType
     reason: str
@@ -55,7 +58,7 @@ class ContentFilterRule(PolicyRule):
         name: str = "content_filter",
         blocked_patterns: List[str] = None,
         blocked_words: List[str] = None,
-        max_length: Optional[int] = None
+        max_length: Optional[int] = None,
     ):
         super().__init__(name, PolicyType.CONTENT_FILTER)
         self.blocked_patterns = blocked_patterns or []
@@ -72,7 +75,7 @@ class ContentFilterRule(PolicyRule):
                 False,
                 PolicyType.CONTENT_FILTER,
                 f"Content exceeds maximum length of {self.max_length} characters",
-                {"length": len(text_data), "max_length": self.max_length}
+                {"length": len(text_data), "max_length": self.max_length},
             )
 
         # Check blocked words
@@ -82,7 +85,7 @@ class ContentFilterRule(PolicyRule):
                     False,
                     PolicyType.CONTENT_FILTER,
                     f"Content contains blocked word: {word}",
-                    {"blocked_word": word}
+                    {"blocked_word": word},
                 )
 
         # Check blocked patterns
@@ -92,7 +95,7 @@ class ContentFilterRule(PolicyRule):
                     False,
                     PolicyType.CONTENT_FILTER,
                     f"Content matches blocked pattern: {pattern}",
-                    {"blocked_pattern": pattern}
+                    {"blocked_pattern": pattern},
                 )
 
         return PolicyResult(True, PolicyType.CONTENT_FILTER, "Content passed filtering")
@@ -105,15 +108,15 @@ class DataPrivacyRule(PolicyRule):
         self,
         name: str = "data_privacy",
         pii_patterns: List[str] = None,
-        sensitive_fields: List[str] = None
+        sensitive_fields: List[str] = None,
     ):
         super().__init__(name, PolicyType.DATA_PRIVACY)
         self.pii_patterns = pii_patterns or [
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN pattern
-            r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b',  # Credit card pattern
-            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'  # Email pattern
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN pattern
+            r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b",  # Credit card pattern
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Email pattern
         ]
-        self.sensitive_fields = sensitive_fields or ['password', 'ssn', 'credit_card']
+        self.sensitive_fields = sensitive_fields or ["password", "ssn", "credit_card"]
 
     def _evaluate(self, data: Any, context: Dict[str, Any]) -> PolicyResult:
         """Evaluate data privacy rules."""
@@ -126,7 +129,7 @@ class DataPrivacyRule(PolicyRule):
                     False,
                     PolicyType.DATA_PRIVACY,
                     f"Data contains potential PII matching pattern: {pattern}",
-                    {"detected_pattern": pattern}
+                    {"detected_pattern": pattern},
                 )
 
         # Check for sensitive fields if data is a dict
@@ -137,10 +140,12 @@ class DataPrivacyRule(PolicyRule):
                         False,
                         PolicyType.DATA_PRIVACY,
                         f"Data contains sensitive field: {field}",
-                        {"sensitive_field": field}
+                        {"sensitive_field": field},
                     )
 
-        return PolicyResult(True, PolicyType.DATA_PRIVACY, "No privacy violations detected")
+        return PolicyResult(
+            True, PolicyType.DATA_PRIVACY, "No privacy violations detected"
+        )
 
 
 class RateLimitRule(PolicyRule):
@@ -150,7 +155,7 @@ class RateLimitRule(PolicyRule):
         self,
         name: str = "rate_limit",
         max_requests_per_minute: int = 60,
-        max_requests_per_hour: int = 1000
+        max_requests_per_hour: int = 1000,
     ):
         super().__init__(name, PolicyType.RATE_LIMIT)
         self.max_requests_per_minute = max_requests_per_minute
@@ -162,7 +167,7 @@ class RateLimitRule(PolicyRule):
         """Evaluate rate limiting rules."""
         # This is a simplified implementation
         # In practice, you'd track actual request counts with Redis or similar
-        agent_id = context.get('agent_id', 'unknown')
+        agent_id = context.get("agent_id", "unknown")
 
         # For demonstration, we'll always allow requests
         # Real implementation would check actual rate limits
@@ -188,29 +193,29 @@ class PolicyChecker:
         """Get default policy rules."""
         return [
             ContentFilterRule(
-                blocked_words=['hack', 'exploit', 'malware'],
-                max_length=10000
+                blocked_words=["hack", "exploit", "malware"], max_length=10000
             ),
             DataPrivacyRule(),
-            RateLimitRule()
+            RateLimitRule(),
         ]
 
-    async def check_input(self, data: Any, context: Dict[str, Any] = None) -> PolicyResult:
+    async def check_input(
+        self, data: Any, context: Dict[str, Any] = None
+    ) -> PolicyResult:
         """Check input data against all policies."""
         return await self._check_policies(data, context or {}, "input")
 
-    async def check_output(self, data: Any, context: Dict[str, Any] = None) -> PolicyResult:
+    async def check_output(
+        self, data: Any, context: Dict[str, Any] = None
+    ) -> PolicyResult:
         """Check output data against all policies."""
         return await self._check_policies(data, context or {}, "output")
 
     async def _check_policies(
-        self,
-        data: Any,
-        context: Dict[str, Any],
-        check_type: str
+        self, data: Any, context: Dict[str, Any], check_type: str
     ) -> PolicyResult:
         """Check data against all enabled policy rules."""
-        context = {**context, 'check_type': check_type}
+        context = {**context, "check_type": check_type}
 
         for rule in self.rules:
             if not rule.enabled:
@@ -222,18 +227,20 @@ class PolicyChecker:
                     self.logger.warning(
                         f"Policy violation in {check_type}: {result.reason}",
                         extra={
-                            'rule_name': rule.name,
-                            'policy_type': result.policy_type.value,
-                            'check_type': check_type,
-                            'details': result.details
-                        }
+                            "rule_name": rule.name,
+                            "policy_type": result.policy_type.value,
+                            "check_type": check_type,
+                            "details": result.details,
+                        },
                     )
                     return result
             except Exception as e:
                 self.logger.error(f"Error checking policy rule {rule.name}: {e}")
                 # Continue checking other rules even if one fails
 
-        return PolicyResult(True, PolicyType.CUSTOM, f"All {check_type} policies passed")
+        return PolicyResult(
+            True, PolicyType.CUSTOM, f"All {check_type} policies passed"
+        )
 
     def add_rule(self, rule: PolicyRule) -> None:
         """Add a new policy rule."""
@@ -264,11 +271,7 @@ class PolicyChecker:
     def get_rules(self) -> List[Dict[str, Any]]:
         """Get information about all policy rules."""
         return [
-            {
-                'name': rule.name,
-                'type': rule.policy_type.value,
-                'enabled': rule.enabled
-            }
+            {"name": rule.name, "type": rule.policy_type.value, "enabled": rule.enabled}
             for rule in self.rules
         ]
 

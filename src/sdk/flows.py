@@ -1,1 +1,2 @@
-def register_flow(yaml_def): pass
+def register_flow(yaml_def):
+    pass
