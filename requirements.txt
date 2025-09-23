@@ -1,0 +1,17 @@
+Django>=4.2
+djangorestframework
+psycopg2-binary
+celery[redis]
+redis
+kafka-python
+pydantic
+PyYAML
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-django
+prometheus-client
+requests
+gunicorn
+python-dotenv
+loguru
+aiohttp

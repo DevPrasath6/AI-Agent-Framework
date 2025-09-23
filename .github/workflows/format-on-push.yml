@@ -1,0 +1,31 @@
+name: Format and PR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install ruff
+        run: python -m pip install --upgrade pip && pip install ruff
+      - name: Run ruff format
+        id: ruff
+        run: |
+          # Run formatter; if it makes changes, commit them and open a PR
+          ruff format .
+      - name: Commit and create pull request with formatting changes
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: apply ruff formatting"
+          branch: ruff-formatting-fixes
+          title: "chore: apply ruff formatting"
+          body: "Automatic formatting fixes by ruff"

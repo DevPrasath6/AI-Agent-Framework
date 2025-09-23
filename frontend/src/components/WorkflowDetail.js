@@ -1,0 +1,1 @@
+export default function WorkflowDetail(){return <div>Workflow Detail</div>}

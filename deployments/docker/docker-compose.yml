@@ -1,0 +1,62 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_framework
+    ports:
+      - '5432:5432'
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+  kafka:
+    image: bitnami/kafka:latest
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+    depends_on:
+      - zookeeper
+  django:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.api
+    command: gunicorn ai_framework.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - ../../django_app:/app
+    ports:
+      - '8000:8000'
+    environment:
+      - POSTGRES_HOST=db
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+      - kafka
+  orchestrator:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.worker
+    command: python -u -m src.orchestrator.orchestrator
+    volumes:
+      - ../../src:/app/src
+    depends_on:
+      - kafka
+  worker:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.worker
+    command: python -u -m src.worker
+    volumes:
+      - ../../src:/app/src
+    depends_on:
+      - kafka

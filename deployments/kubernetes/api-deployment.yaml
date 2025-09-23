@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-api
+  template:
+    metadata:
+      labels: { app: ai-api }
+    spec:
+      containers:
+        - name: api
+          image: ai-agent-framework-api:latest

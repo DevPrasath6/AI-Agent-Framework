@@ -1,0 +1,7 @@
+__pycache__/
+.env
+.vscode/
+*.pyc
+*.pkl
+.DS_Store
+/deployments/docker/.env

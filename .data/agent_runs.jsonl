@@ -1,0 +1,2 @@
+{"run_id": "7592c9b5-5efc-4519-846e-41cac43c542d", "agent": "test-agent", "result": {"echo": {"message": "hi"}}, "id": 1}
+{"run_id": "623550c0-94db-4fbb-b709-bafe57e0707e", "agent": "test-agent", "result": {"echo": {"message": "hi"}}, "id": 2}

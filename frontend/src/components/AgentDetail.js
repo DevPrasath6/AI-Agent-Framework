@@ -1,0 +1,1 @@
+export default function AgentDetail(){return <div>Agent Detail</div>}
