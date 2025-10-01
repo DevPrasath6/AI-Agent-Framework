@@ -1,4 +1,4 @@
-# AI Agent Framework — Advanced README
+# AI Agent Framework
 
 One-line summary
 -----------------
