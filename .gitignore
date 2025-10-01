@@ -6,7 +6,10 @@ __pycache__/
 .DS_Store
 /deployments/docker/.env
 
-# Node.js
+# Node.js (Frontend is disconnected but preserved)
+# Note: frontend/ directory is kept for reuse in other projects
+# Uncomment the line below if you want to exclude frontend entirely:
+# frontend/
 node_modules/
 npm-debug.log*
 yarn-debug.log*

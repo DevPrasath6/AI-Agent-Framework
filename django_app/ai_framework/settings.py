@@ -82,23 +82,16 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS Configuration for Frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-]
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all origins in debug mode
+# CORS Configuration - Disabled (Frontend Disconnected)
+# Frontend has been disconnected from this framework
+# Uncomment and configure these settings if you need to connect a frontend:
+# CORS_ALLOWED_ORIGINS = []
+# CORS_ALLOW_CREDENTIALS = False
+# CORS_ALLOW_ALL_ORIGINS = False
 
-# CSRF Configuration
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-]
+# CSRF Configuration - Framework API Only
+# Configure these if connecting external frontends:
+# CSRF_TRUSTED_ORIGINS = []
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
