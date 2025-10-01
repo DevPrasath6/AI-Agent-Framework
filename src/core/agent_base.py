@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from .execution_context import ExecutionContext
+from .agent_id_generator import generate_professional_agent_id
 from ..observability.audit_trail import AuditTrail
 from ..guardrails.policy_checker import PolicyChecker
 from ..state_memory.session_memory import SessionMemory
@@ -53,6 +54,7 @@ class AgentBase(ABC):
         config: Dict[str, Any] = None,
         memory_enabled: bool = True,
         guardrails_enabled: bool = True,
+        id_generator_type: str = "professional",
     ):
         """
         Initialize the agent.
@@ -64,8 +66,14 @@ class AgentBase(ABC):
             config: Agent-specific configuration
             memory_enabled: Whether to enable session memory
             guardrails_enabled: Whether to enable policy checking
+            id_generator_type: Type of ID generator ("professional", "sequential", "hierarchical")
         """
-        self.id = str(uuid.uuid4())
+        # Generate professional agent ID
+        self.id = generate_professional_agent_id(
+            agent_name=name,
+            metadata={"capabilities": [cap.value for cap in (capabilities or [])], "config": config},
+            generator_type=id_generator_type
+        )
         self.name = name
         self.description = description
         self.capabilities = capabilities or []
@@ -240,17 +248,21 @@ class SimpleAgent(AgentBase):
     A simple agent implementation for basic text processing tasks.
     """
 
-    def __init__(self, name: str, processor_func=None, **kwargs):
+    def __init__(self, name: str, processor_func=None, id_generator_type: str = "professional", **kwargs):
         """
         Initialize simple agent.
 
         Args:
             name: Agent name
             processor_func: Function to process input data
+            id_generator_type: Type of ID generator to use
             **kwargs: Additional agent configuration
         """
         super().__init__(
-            name=name, capabilities=[AgentCapability.TEXT_PROCESSING], **kwargs
+            name=name,
+            capabilities=[AgentCapability.TEXT_PROCESSING],
+            id_generator_type=id_generator_type,
+            **kwargs
         )
         self.processor_func = processor_func or self._default_processor
 

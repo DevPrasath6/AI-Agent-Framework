@@ -3,12 +3,16 @@ import uuid
 import sys
 import types
 
-from src.messaging.kafka_client import get_inmemory_broker
+from src.messaging.kafka_client import get_inmemory_broker, InMemoryBroker
 
 
 def test_adapter_falls_back_to_orchestrator(monkeypatch):
     """If the producer fails to send, adapter should fallback to orchestrator task."""
-    broker = get_inmemory_broker()
+    # Use a fresh broker for this test to avoid interference
+    fresh_broker = InMemoryBroker()
+
+    # Replace the global broker temporarily
+    monkeypatch.setattr("src.messaging.kafka_client._GLOBAL_INMEM_BROKER", fresh_broker)
 
     # Simulate get_producer raising
     async def fake_get_producer(*args, **kwargs):
@@ -38,9 +42,13 @@ def test_adapter_falls_back_to_orchestrator(monkeypatch):
 
 def test_worker_continues_after_handler_exception(monkeypatch):
     """Consumer should keep processing after one handler raises an exception."""
-    broker = get_inmemory_broker()
+    # Use a fresh broker for this test to avoid interference
+    fresh_broker = InMemoryBroker()
 
-    prod = broker.create_producer()
+    # Replace the global broker temporarily
+    monkeypatch.setattr("src.messaging.kafka_client._GLOBAL_INMEM_BROKER", fresh_broker)
+
+    prod = fresh_broker.create_producer()
 
     processed = []
 
@@ -55,14 +63,17 @@ def test_worker_continues_after_handler_exception(monkeypatch):
     monkeypatch.setattr(kw, "_handle_workflow_event", failing_handler)
 
     async def main():
-        # Start worker for a short time
-        task = asyncio.create_task(kw.run_worker(backend="inmemory", stop_after=0.5))
-        await asyncio.sleep(0.05)
+        # Start worker for a longer time to ensure messages are processed
+        task = asyncio.create_task(kw.run_worker(backend="inmemory", stop_after=1.0))
+        await asyncio.sleep(0.1)  # Give worker time to start
 
         # Send a bad message that causes handler to raise
         await prod.send("workflow-requests", {"run_id": "r1", "payload": {"bad": True}})
         # Send a good message that should be processed
         await prod.send("workflow-requests", {"run_id": "r2", "payload": {"good": True}})
+
+        # Give more time for messages to be processed
+        await asyncio.sleep(0.2)
 
         await task
 

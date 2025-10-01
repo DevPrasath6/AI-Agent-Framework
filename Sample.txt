@@ -1,1 +1,0 @@
-(C) reliability tests — those unlock distributed execution and ensure correctness under failures. After that, do (B) OpenVINO benchmarking.
