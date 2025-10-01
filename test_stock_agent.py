@@ -70,7 +70,8 @@ class StockMonitorAgent(SimpleAgent):
                 "trend": "insufficient_data",
                 "change_percent": 0,
                 "alert": None,
-                "confidence": 0
+                    "confidence": 0,
+                    "moving_average": None,
             }
 
         # Calculate percentage change from previous price
@@ -78,6 +79,7 @@ class StockMonitorAgent(SimpleAgent):
         change_percent = ((current_price - prev_price) / prev_price) * 100
 
         # Calculate moving average if we have enough data
+        moving_avg = None
         if len(history) >= 5:
             prices = [h["price"] for h in history[-5:]]
             moving_avg = sum(prices) / len(prices)
@@ -100,12 +102,13 @@ class StockMonitorAgent(SimpleAgent):
             }
             self.alerts_generated.append(alert_data)
 
+        # Final analysis output
         return {
             "trend": trend,
             "change_percent": round(change_percent, 2),
             "alert": alert,
             "confidence": min(len(history) / 10, 1.0),
-            "moving_average": round(moving_avg, 2) if len(history) >= 5 else None
+            "moving_average": round(moving_avg, 2) if moving_avg is not None else None,
         }
 
 async def test_with_real_stock_data():
