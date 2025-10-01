@@ -18,11 +18,15 @@ try:
     from airflow import DAG
     from airflow.operators.python import PythonOperator
     from airflow.operators.bash import BashOperator
-    from airflow.operators.dummy import DummyOperator
+    # Use EmptyOperator instead of deprecated DummyOperator
+    try:
+        from airflow.operators.empty import EmptyOperator as DummyOperator
+    except ImportError:
+        from airflow.operators.dummy import DummyOperator
     from airflow.utils.dates import days_ago
     AIRFLOW_AVAILABLE = True
-except ImportError:
-    # Provide stub classes when Airflow is not installed
+except (ImportError, AttributeError, RuntimeError) as e:
+    # Provide stub classes when Airflow is not installed or not compatible (e.g., Windows)
     DAG = None
     PythonOperator = None
     BashOperator = None
@@ -35,12 +39,12 @@ logger = logging.getLogger(__name__)
 
 class AirflowIntegration:
     """Converts AI Agent Framework workflows to Airflow DAGs."""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
+
     def workflow_to_dag(
-        self, 
+        self,
         workflow_def: WorkflowDefinition,
         dag_id: Optional[str] = None,
         schedule_interval: Optional[str] = None,
@@ -48,26 +52,26 @@ class AirflowIntegration:
         default_args: Optional[Dict[str, Any]] = None
     ) -> Optional[Any]:
         """Convert a WorkflowDefinition to an Airflow DAG.
-        
+
         Args:
             workflow_def: The workflow definition to convert
             dag_id: Override DAG ID (defaults to workflow.id)
             schedule_interval: Airflow schedule interval
             start_date: DAG start date
             default_args: Additional DAG arguments
-            
+
         Returns:
             Airflow DAG object or None if Airflow unavailable
         """
         if not AIRFLOW_AVAILABLE:
             self.logger.warning("Airflow not available - returning None")
             return None
-            
+
         # Set defaults
         dag_id = dag_id or workflow_def.id
         start_date = start_date or days_ago(1)
         schedule_interval = schedule_interval or None  # Manual trigger only
-        
+
         default_dag_args = {
             'owner': 'ai-agent-framework',
             'depends_on_past': False,
@@ -78,7 +82,7 @@ class AirflowIntegration:
         }
         if default_args:
             default_dag_args.update(default_args)
-            
+
         # Create the DAG
         dag = DAG(
             dag_id=dag_id,
@@ -89,22 +93,22 @@ class AirflowIntegration:
             catchup=False,
             tags=['ai-agent-framework', 'generated'],
         )
-        
+
         # Create operators for each step
         operators = {}
         for step in workflow_def.steps:
             operator = self._create_operator_for_step(step, dag)
             operators[step.id] = operator
-            
+
         # Set up dependencies
         for step in workflow_def.steps:
             if step.dependencies:
                 for dep_id in step.dependencies:
                     if dep_id in operators:
                         operators[dep_id] >> operators[step.id]
-                        
+
         return dag
-        
+
     def _create_operator_for_step(self, step: WorkflowStep, dag: Any) -> Any:
         """Create an Airflow operator for a workflow step."""
         if step.step_type == StepType.AGENT:
@@ -121,75 +125,75 @@ class AirflowIntegration:
                 task_id=step.id,
                 dag=dag,
             )
-            
+
     def _create_agent_operator(self, step: WorkflowStep, dag: Any) -> Any:
         """Create a PythonOperator for agent execution."""
         def execute_agent(**context):
             """Execute agent step."""
             from src.orchestrator.celery_tasks import execute_agent_run
-            
+
             # Get input from previous tasks or DAG run conf
             input_data = context.get('dag_run').conf or {}
             agent_name = step.config.get('agent_name', 'default_agent')
-            
+
             # Generate a run ID for tracking
             run_id = f"airflow_{context['dag_run'].run_id}_{step.id}"
-            
+
             # Execute the agent
             result = execute_agent_run(run_id, agent_name, input_data)
-            
+
             # Return result for downstream tasks
             return result
-            
+
         return PythonOperator(
             task_id=step.id,
             python_callable=execute_agent,
             dag=dag,
             provide_context=True,
         )
-        
+
     def _create_tool_operator(self, step: WorkflowStep, dag: Any) -> Any:
         """Create a PythonOperator for tool execution."""
         def execute_tool(**context):
             """Execute tool step."""
             from src.sdk.tools import get_tool
-            
+
             # Get tool configuration
             tool_name = step.config.get('tool_name')
             tool_params = step.config.get('tool_params', {})
-            
+
             if not tool_name:
                 raise ValueError(f"Tool step {step.id} missing tool_name in config")
-                
+
             # Get tool instance
             tool = get_tool(tool_name)
             if not tool:
                 raise ValueError(f"Tool {tool_name} not found in registry")
-                
+
             # Get input from previous tasks or DAG run conf
             input_data = context.get('dag_run').conf or {}
-            
+
             # Execute the tool
             result = tool.execute(input_data, **tool_params)
-            
+
             return result
-            
+
         return PythonOperator(
             task_id=step.id,
             python_callable=execute_tool,
             dag=dag,
             provide_context=True,
         )
-        
+
     def _create_condition_operator(self, step: WorkflowStep, dag: Any) -> Any:
         """Create a PythonOperator for conditional logic."""
         def evaluate_condition(**context):
             """Evaluate condition step."""
             from src.core.workflow_base import safe_eval_expr, EvalContext
-            
+
             condition_expr = step.config.get('condition', 'True')
             input_data = context.get('dag_run').conf or {}
-            
+
             # Create evaluation context
             eval_context = EvalContext(
                 input=input_data,
@@ -197,20 +201,20 @@ class AirflowIntegration:
                 step_results={},
                 metadata={}
             )
-            
+
             # Evaluate condition
             result = safe_eval_expr(condition_expr, eval_context)
-            
+
             # Return result for branching
             return result
-            
+
         return PythonOperator(
             task_id=step.id,
             python_callable=evaluate_condition,
             dag=dag,
             provide_context=True,
         )
-        
+
     def _create_parallel_operator(self, step: WorkflowStep, dag: Any) -> Any:
         """Create a DummyOperator for parallel coordination."""
         return DummyOperator(
@@ -226,30 +230,30 @@ def generate_airflow_dag_file(
     schedule_interval: Optional[str] = None
 ) -> bool:
     """Generate a standalone Airflow DAG file from a workflow definition.
-    
+
     Args:
         workflow_def: The workflow definition
         output_path: Path to write the DAG file
         dag_id: Override DAG ID
         schedule_interval: Airflow schedule interval
-        
+
     Returns:
         True if file was generated successfully
     """
     if not AIRFLOW_AVAILABLE:
         logger.warning("Airflow not available - cannot generate DAG file")
         return False
-        
+
     integration = AirflowIntegration()
     dag = integration.workflow_to_dag(
         workflow_def,
         dag_id=dag_id,
         schedule_interval=schedule_interval
     )
-    
+
     if not dag:
         return False
-        
+
     # Generate Python code for the DAG
     dag_code = f'''"""
 Auto-generated Airflow DAG from AI Agent Framework workflow.
@@ -311,7 +315,7 @@ dag = DAG(
         if step.dependencies:
             for dep_id in step.dependencies:
                 dag_code += f"{dep_id} >> {step.id}\n"
-    
+
     # Write to file
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -326,7 +330,7 @@ dag = DAG(
 def _generate_agent_task_code(step: WorkflowStep) -> str:
     """Generate Python code for an agent task."""
     agent_name = step.config.get('agent_name', 'default_agent')
-    
+
     return f'''
 def execute_{step.id}(**context):
     """Execute agent step: {step.name}"""
@@ -347,7 +351,7 @@ def _generate_tool_task_code(step: WorkflowStep) -> str:
     """Generate Python code for a tool task."""
     tool_name = step.config.get('tool_name', 'default_tool')
     tool_params = step.config.get('tool_params', {})
-    
+
     return f'''
 def execute_{step.id}(**context):
     """Execute tool step: {step.name}"""

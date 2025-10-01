@@ -76,7 +76,7 @@ class CustomerSupportAgent(AgentBase):
         # Support ticket tracking
         self.active_tickets: Dict[str, Dict[str, Any]] = {}
         self.ticket_counter = 0
-        
+
         # Initialize knowledge base in vector memory
         asyncio.create_task(self._initialize_knowledge_base())
 
@@ -115,7 +115,7 @@ class CustomerSupportAgent(AgentBase):
             or analysis["requires_human"]
         ):
             escalation_result = await self._escalate_to_human(inquiry, analysis, context)
-            
+
             # Store escalation in conversation memory
             await self._store_conversation_turn(
                 conversation_id=conversation_id,
@@ -123,7 +123,7 @@ class CustomerSupportAgent(AgentBase):
                 content=f"Escalated to human agent: {escalation_result.get('escalation_reason', 'Unknown')}",
                 metadata={"action": "escalation", "timestamp": datetime.now().isoformat()}
             )
-            
+
             return escalation_result
 
         # Search knowledge base for relevant information
@@ -228,7 +228,7 @@ class CustomerSupportAgent(AgentBase):
                     # Create a simple embedding (in practice, use a real embedding model)
                     text = f"{item['title']} {item['content']}"
                     embedding = self._create_simple_embedding(text)
-                    
+
                     await self.vector_memory.add_text(
                         text=text,
                         embedding=embedding,
@@ -250,11 +250,11 @@ class CustomerSupportAgent(AgentBase):
         # This is a very simple hash-based embedding for demo purposes
         # In practice, use OpenAI embeddings, sentence-transformers, etc.
         import hashlib
-        
+
         # Create a deterministic embedding based on text content
         text_hash = hashlib.md5(text.lower().encode()).hexdigest()
         embedding = []
-        
+
         # Create 1536-dimensional embedding (OpenAI embedding size)
         for i in range(0, 1536):
             # Use hash characters cyclically to create embedding values
@@ -262,14 +262,14 @@ class CustomerSupportAgent(AgentBase):
             # Convert hex char to float between -1 and 1
             value = (int(text_hash[char_index], 16) - 7.5) / 7.5
             embedding.append(value)
-            
+
         return embedding
 
     async def _store_conversation_turn(
-        self, 
-        conversation_id: str, 
-        role: str, 
-        content: str, 
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
         metadata: Optional[Dict[str, Any]] = None
     ):
         """Store a conversation turn in vector memory."""
@@ -286,9 +286,9 @@ class CustomerSupportAgent(AgentBase):
             self.logger.error(f"Failed to store conversation turn: {e}")
 
     async def _get_conversation_context(
-        self, 
-        inquiry: str, 
-        conversation_id: str, 
+        self,
+        inquiry: str,
+        conversation_id: str,
         max_tokens: int = 1000
     ) -> str:
         """Get relevant conversation context from vector memory."""
@@ -318,7 +318,7 @@ class CustomerSupportAgent(AgentBase):
                 namespace="knowledge_base",
                 min_score=0.3
             )
-            
+
             matches = []
             for result in vector_results:
                 metadata = result.document.metadata
@@ -329,14 +329,14 @@ class CustomerSupportAgent(AgentBase):
                     "relevance_score": result.score,
                     "source": "vector_search"
                 })
-                
+
             # If vector search doesn't find enough results, fall back to keyword search
             if len(matches) < 2:
                 keyword_matches = await self._fallback_keyword_search(inquiry)
                 matches.extend(keyword_matches)
-                
+
             return matches[:3]  # Return top 3 matches
-            
+
         except Exception as e:
             self.logger.error(f"Vector search failed, falling back to keyword search: {e}")
             return await self._fallback_keyword_search(inquiry)

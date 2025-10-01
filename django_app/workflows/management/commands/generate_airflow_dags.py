@@ -32,10 +32,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         output_dir = Path(options['output_dir'])
         output_dir.mkdir(exist_ok=True)
-        
+
         workflow_id = options.get('workflow_id')
         schedule_interval = options.get('schedule_interval')
-        
+
         if workflow_id:
             workflows = Workflow.objects.filter(id=workflow_id)
             if not workflows.exists():
@@ -45,9 +45,9 @@ class Command(BaseCommand):
                 return
         else:
             workflows = Workflow.objects.all()
-            
+
         generated_count = 0
-        
+
         for workflow in workflows:
             try:
                 # Parse workflow definition
@@ -61,21 +61,21 @@ class Command(BaseCommand):
                         )
                     )
                     continue
-                
+
                 # Convert to WorkflowDefinition
                 workflow_def = self._dict_to_workflow_definition(workflow_dict, workflow)
-                
+
                 # Generate DAG file
                 dag_filename = f"{workflow.id}.py"
                 output_path = output_dir / dag_filename
-                
+
                 success = generate_airflow_dag_file(
                     workflow_def,
                     str(output_path),
                     dag_id=f"ai_framework_{workflow.id}",
                     schedule_interval=schedule_interval
                 )
-                
+
                 if success:
                     generated_count += 1
                     self.stdout.write(
@@ -89,14 +89,14 @@ class Command(BaseCommand):
                             f'Failed to generate DAG for {workflow.name}'
                         )
                     )
-                    
+
             except Exception as e:
                 self.stdout.write(
                     self.style.ERROR(
                         f'Error processing {workflow.name}: {str(e)}'
                     )
                 )
-                
+
         self.stdout.write(
             self.style.SUCCESS(
                 f'Generated {generated_count} Airflow DAG files in {output_dir}'
@@ -116,7 +116,7 @@ class Command(BaseCommand):
                 condition=step_dict.get('condition')
             )
             steps.append(step)
-            
+
         return WorkflowDefinition(
             id=str(workflow_model.id),
             name=workflow_model.name,

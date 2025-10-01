@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class PostgreSQLAdapter:
     """Production PostgreSQL adapter for state and memory persistence."""
-    
+
     def __init__(
         self,
         connection_string: str,
@@ -48,13 +48,13 @@ class PostgreSQLAdapter:
         self._pool = None
         self._async_pool = None
         self.logger = logging.getLogger(__name__)
-        
+
     async def initialize(self):
         """Initialize database connection pools."""
         if not DATABASE_AVAILABLE:
             self.logger.warning("Database dependencies not available - falling back to JSON-lines")
             return False
-            
+
         try:
             if self.async_mode:
                 # Create async connection pool
@@ -70,16 +70,16 @@ class PostgreSQLAdapter:
                     self.pool_size,
                     self.connection_string
                 )
-                
+
             # Initialize schema
             await self._initialize_schema()
             self.logger.info("PostgreSQL adapter initialized successfully")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to initialize PostgreSQL adapter: {e}")
             return False
-            
+
     async def _initialize_schema(self):
         """Create necessary tables if they don't exist."""
         schema_sql = """
@@ -90,16 +90,16 @@ class PostgreSQLAdapter:
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_records_table_name 
+
+        CREATE INDEX IF NOT EXISTS idx_records_table_name
         ON ai_framework_records(table_name);
-        
-        CREATE INDEX IF NOT EXISTS idx_records_created_at 
+
+        CREATE INDEX IF NOT EXISTS idx_records_created_at
         ON ai_framework_records(created_at);
-        
-        CREATE INDEX IF NOT EXISTS idx_records_data_gin 
+
+        CREATE INDEX IF NOT EXISTS idx_records_data_gin
         ON ai_framework_records USING GIN (data);
-        
+
         CREATE TABLE IF NOT EXISTS ai_framework_vector_embeddings (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             record_id UUID REFERENCES ai_framework_records(id) ON DELETE CASCADE,
@@ -107,11 +107,11 @@ class PostgreSQLAdapter:
             metadata JSONB,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_embeddings_vector 
+
+        CREATE INDEX IF NOT EXISTS idx_embeddings_vector
         ON ai_framework_vector_embeddings USING hnsw (embedding vector_cosine_ops);
         """
-        
+
         if self.async_mode and self._async_pool:
             async with self._async_pool.acquire() as conn:
                 await conn.execute(schema_sql)
@@ -123,17 +123,17 @@ class PostgreSQLAdapter:
                     conn.commit()
             finally:
                 self._pool.putconn(conn)
-                
+
     async def save_record(self, table: str, obj: Dict[str, Any]) -> Dict[str, Any]:
         """Save a record to PostgreSQL."""
         if not self._is_available():
             # Fallback to JSON-lines
             return save_record(table, obj)
-            
+
         # Ensure record has an id
         if "id" not in obj:
             obj["id"] = str(uuid.uuid4())
-            
+
         try:
             if self.async_mode and self._async_pool:
                 async with self._async_pool.acquire() as conn:
@@ -149,7 +149,7 @@ class PostgreSQLAdapter:
                         uuid.UUID(obj["id"]), table, json.dumps(obj)
                     )
                     return obj
-                    
+
             elif self._pool:
                 conn = self._pool.getconn()
                 try:
@@ -168,37 +168,37 @@ class PostgreSQLAdapter:
                         return obj
                 finally:
                     self._pool.putconn(conn)
-                    
+
         except Exception as e:
             self.logger.error(f"Failed to save record to PostgreSQL: {e}")
             # Fallback to JSON-lines
             return save_record(table, obj)
-            
+
     async def read_records(self, table: str, limit: Optional[int] = None, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Read records from PostgreSQL."""
         if not self._is_available():
             # Fallback to JSON-lines
             return read_records(table)
-            
+
         try:
             query = "SELECT data FROM ai_framework_records WHERE table_name = $1"
             params = [table]
-            
+
             if filters:
                 # Simple JSONB filtering
                 for key, value in filters.items():
                     query += f" AND data->>'{key}' = ${len(params) + 1}"
                     params.append(str(value))
-                    
+
             if limit:
                 query += f" LIMIT ${len(params) + 1}"
                 params.append(limit)
-                
+
             if self.async_mode and self._async_pool:
                 async with self._async_pool.acquire() as conn:
                     rows = await conn.fetch(query, *params)
                     return [json.loads(row['data']) for row in rows]
-                    
+
             elif self._pool:
                 conn = self._pool.getconn()
                 try:
@@ -208,34 +208,34 @@ class PostgreSQLAdapter:
                         return [json.loads(row[0]) for row in rows]
                 finally:
                     self._pool.putconn(conn)
-                    
+
         except Exception as e:
             self.logger.error(f"Failed to read records from PostgreSQL: {e}")
             # Fallback to JSON-lines
             return read_records(table)
-            
+
     async def search_records(self, table: str, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Search records using PostgreSQL full-text search."""
         if not self._is_available():
             # Fallback to simple JSON-lines search
             records = read_records(table)
             return [r for r in records if query.lower() in str(r).lower()][:limit]
-            
+
         try:
             search_query = """
             SELECT data, ts_rank(to_tsvector('english', data::text), plainto_tsquery('english', $2)) as rank
-            FROM ai_framework_records 
-            WHERE table_name = $1 
+            FROM ai_framework_records
+            WHERE table_name = $1
             AND to_tsvector('english', data::text) @@ plainto_tsquery('english', $2)
             ORDER BY rank DESC
             LIMIT $3
             """
-            
+
             if self.async_mode and self._async_pool:
                 async with self._async_pool.acquire() as conn:
                     rows = await conn.fetch(search_query, table, query, limit)
                     return [json.loads(row['data']) for row in rows]
-                    
+
             elif self._pool:
                 conn = self._pool.getconn()
                 try:
@@ -245,22 +245,22 @@ class PostgreSQLAdapter:
                         return [json.loads(row[0]) for row in rows]
                 finally:
                     self._pool.putconn(conn)
-                    
+
         except Exception as e:
             self.logger.error(f"Failed to search records in PostgreSQL: {e}")
             return []
-            
+
     async def store_embedding(
-        self, 
-        record_id: str, 
-        embedding: List[float], 
+        self,
+        record_id: str,
+        embedding: List[float],
         metadata: Optional[Dict[str, Any]] = None
     ) -> bool:
         """Store vector embedding for semantic search."""
         if not self._is_available():
             self.logger.warning("Vector embeddings require PostgreSQL with pgvector extension")
             return False
-            
+
         try:
             if self.async_mode and self._async_pool:
                 async with self._async_pool.acquire() as conn:
@@ -272,7 +272,7 @@ class PostgreSQLAdapter:
                         uuid.UUID(record_id), embedding, json.dumps(metadata or {})
                     )
                     return True
-                    
+
             elif self._pool:
                 conn = self._pool.getconn()
                 try:
@@ -288,14 +288,14 @@ class PostgreSQLAdapter:
                         return True
                 finally:
                     self._pool.putconn(conn)
-                    
+
         except Exception as e:
             self.logger.error(f"Failed to store embedding: {e}")
             return False
-            
+
     async def similarity_search(
-        self, 
-        embedding: List[float], 
+        self,
+        embedding: List[float],
         table: str,
         limit: int = 10,
         threshold: float = 0.7
@@ -303,7 +303,7 @@ class PostgreSQLAdapter:
         """Perform semantic similarity search using vector embeddings."""
         if not self._is_available():
             return []
-            
+
         try:
             search_query = """
             SELECT r.data, 1 - (e.embedding <=> $1) as similarity
@@ -314,7 +314,7 @@ class PostgreSQLAdapter:
             ORDER BY similarity DESC
             LIMIT $4
             """
-            
+
             if self.async_mode and self._async_pool:
                 async with self._async_pool.acquire() as conn:
                     rows = await conn.fetch(search_query, embedding, table, threshold, limit)
@@ -325,15 +325,15 @@ class PostgreSQLAdapter:
                         }
                         for row in rows
                     ]
-                    
+
         except Exception as e:
             self.logger.error(f"Failed to perform similarity search: {e}")
             return []
-            
+
     def _is_available(self) -> bool:
         """Check if PostgreSQL connection is available."""
         return DATABASE_AVAILABLE and (self._pool is not None or self._async_pool is not None)
-        
+
     async def close(self):
         """Close database connections."""
         if self._async_pool:
@@ -349,12 +349,12 @@ _db_adapter: Optional[PostgreSQLAdapter] = None
 async def get_database_adapter() -> PostgreSQLAdapter:
     """Get or create the global database adapter."""
     global _db_adapter
-    
+
     if _db_adapter is None:
         # Try to get connection string from Django settings
         try:
             from django.conf import settings
-            
+
             # Convert Django database config to PostgreSQL connection string
             db_config = settings.DATABASES.get('default', {})
             if db_config.get('ENGINE') == 'django.db.backends.postgresql':
@@ -365,17 +365,17 @@ async def get_database_adapter() -> PostgreSQLAdapter:
                     f"{db_config.get('PORT', 5432)}/"
                     f"{db_config.get('NAME', '')}"
                 )
-                
+
                 _db_adapter = PostgreSQLAdapter(connection_string)
                 await _db_adapter.initialize()
-                
+
         except Exception as e:
             logger.warning(f"Failed to initialize PostgreSQL adapter: {e}")
-            
+
         # If still None, create a fallback adapter
         if _db_adapter is None:
             _db_adapter = PostgreSQLAdapter("postgresql://localhost:5432/ai_framework")
-            
+
     return _db_adapter
 
 

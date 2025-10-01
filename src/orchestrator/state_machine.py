@@ -97,26 +97,26 @@ class StateMachineDefinition:
 
 class StateMachineContext:
     """Runtime context for state machine execution."""
-    
+
     def __init__(self, definition: StateMachineDefinition):
         self.definition = definition
         self.current_states: Set[str] = set()  # Can have multiple active states (parallel)
         self.variables: Dict[str, Any] = definition.variables.copy()
         self.history: List[StateMachineEvent] = []
         self.logger = logging.getLogger(f"statemachine.{definition.id}")
-        
+
     def is_in_state(self, state_id: str) -> bool:
         """Check if the state machine is currently in the specified state."""
         return state_id in self.current_states
-        
+
     def is_final(self) -> bool:
         """Check if the state machine is in a final state."""
         return bool(self.current_states & self.definition.final_states)
-        
+
     def get_variable(self, name: str, default: Any = None) -> Any:
         """Get a variable value."""
         return self.variables.get(name, default)
-        
+
     def set_variable(self, name: str, value: Any):
         """Set a variable value."""
         self.variables[name] = value
@@ -124,7 +124,7 @@ class StateMachineContext:
 
 class AdvancedStateMachine:
     """Advanced state machine executor with hierarchical states and parallel regions."""
-    
+
     def __init__(self, definition: StateMachineDefinition):
         self.definition = definition
         self.context = StateMachineContext(definition)
@@ -132,7 +132,7 @@ class AdvancedStateMachine:
         self._state_map = {state.id: state for state in definition.states}
         self._transition_map = self._build_transition_map()
         self._running_activities: Dict[str, asyncio.Task] = {}
-        
+
     def _build_transition_map(self) -> Dict[str, List[Transition]]:
         """Build a map of source states to their transitions."""
         transition_map = {}
@@ -140,13 +140,13 @@ class AdvancedStateMachine:
             if transition.source_state not in transition_map:
                 transition_map[transition.source_state] = []
             transition_map[transition.source_state].append(transition)
-            
+
         # Sort transitions by priority (highest first)
         for transitions in transition_map.values():
             transitions.sort(key=lambda t: t.priority, reverse=True)
-            
+
         return transition_map
-        
+
     async def start(self) -> bool:
         """Start the state machine execution."""
         try:
@@ -154,34 +154,34 @@ class AdvancedStateMachine:
             if not initial_state:
                 self.logger.error("No initial state defined")
                 return False
-                
+
             await self._enter_state(initial_state)
             self.logger.info(f"State machine {self.definition.id} started in state {initial_state}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to start state machine: {e}")
             return False
-            
+
     async def send_event(self, event: StateMachineEvent) -> bool:
         """Send an event to the state machine."""
         self.context.history.append(event)
         self.logger.debug(f"Processing event: {event.name}")
-        
+
         # Process transitions for all active states
         transitions_fired = False
         current_states = list(self.context.current_states)
-        
+
         for state_id in current_states:
             if await self._process_transitions_for_state(state_id, event):
                 transitions_fired = True
-                
+
         return transitions_fired
-        
+
     async def _process_transitions_for_state(self, state_id: str, event: StateMachineEvent) -> bool:
         """Process transitions for a specific state."""
         transitions = self._transition_map.get(state_id, [])
-        
+
         for transition in transitions:
             if transition.event == event.name or transition.event == "*":
                 # Check guard condition
@@ -192,95 +192,95 @@ class AdvancedStateMachine:
                     except Exception as e:
                         self.logger.warning(f"Guard evaluation failed: {e}")
                         continue
-                        
+
                 # Execute transition
                 await self._execute_transition(transition, event)
                 return True
-                
+
         return False
-        
+
     async def _execute_transition(self, transition: Transition, event: StateMachineEvent):
         """Execute a state transition."""
         self.logger.info(f"Executing transition: {transition.source_state} -> {transition.target_state}")
-        
+
         try:
             # Exit source state
             await self._exit_state(transition.source_state)
-            
+
             # Execute transition action
             if transition.action:
                 await self._execute_action(transition.action, event)
-                
+
             # Enter target state
             await self._enter_state(transition.target_state)
-            
+
         except Exception as e:
             self.logger.error(f"Transition execution failed: {e}")
             raise
-            
+
     async def _enter_state(self, state_id: str):
         """Enter a state and handle hierarchical entry."""
         state = self._state_map.get(state_id)
         if not state:
             raise ValueError(f"State {state_id} not found")
-            
+
         self.context.current_states.add(state_id)
         self.logger.debug(f"Entering state: {state_id}")
-        
+
         # Execute entry action
         if state.entry_action:
             await self._execute_action(state.entry_action, None)
-            
+
         # Handle composite states
         if state.state_type == StateType.COMPOSITE and state.initial_state:
             await self._enter_state(state.initial_state)
-            
+
         # Handle parallel states
         elif state.state_type == StateType.PARALLEL:
             for region in state.regions:
                 if region:  # Enter the first state in each region
                     await self._enter_state(region[0])
-                    
+
         # Start do activity if present
         if state.do_activity:
             task = asyncio.create_task(self._execute_do_activity(state.id, state.do_activity))
             self._running_activities[state_id] = task
-            
+
     async def _exit_state(self, state_id: str):
         """Exit a state and handle hierarchical exit."""
         if state_id not in self.context.current_states:
             return
-            
+
         state = self._state_map.get(state_id)
         if not state:
             return
-            
+
         self.logger.debug(f"Exiting state: {state_id}")
-        
+
         # Stop do activity
         if state_id in self._running_activities:
             self._running_activities[state_id].cancel()
             del self._running_activities[state_id]
-            
+
         # Exit substates first (for composite states)
         if state.state_type == StateType.COMPOSITE:
             substates_to_exit = [s for s in state.substates if s in self.context.current_states]
             for substate in substates_to_exit:
                 await self._exit_state(substate)
-                
+
         # Exit parallel regions
         elif state.state_type == StateType.PARALLEL:
             for region in state.regions:
                 for region_state in region:
                     if region_state in self.context.current_states:
                         await self._exit_state(region_state)
-                        
+
         # Execute exit action
         if state.exit_action:
             await self._execute_action(state.exit_action, None)
-            
+
         self.context.current_states.discard(state_id)
-        
+
     async def _execute_action(self, action: Action, event: Optional[StateMachineEvent]):
         """Execute an action."""
         try:
@@ -291,7 +291,7 @@ class AdvancedStateMachine:
         except Exception as e:
             self.logger.error(f"Action execution failed: {e}")
             raise
-            
+
     async def _execute_do_activity(self, state_id: str, action: Action):
         """Execute a do activity (runs continuously while in state)."""
         try:
@@ -304,19 +304,19 @@ class AdvancedStateMachine:
             self.logger.debug(f"Do activity cancelled for state: {state_id}")
         except Exception as e:
             self.logger.error(f"Do activity failed for state {state_id}: {e}")
-            
+
     async def stop(self):
         """Stop the state machine execution."""
         # Cancel all running activities
         for task in self._running_activities.values():
             task.cancel()
         self._running_activities.clear()
-        
+
         # Exit all active states
         current_states = list(self.context.current_states)
         for state_id in current_states:
             await self._exit_state(state_id)
-            
+
         self.logger.info(f"State machine {self.definition.id} stopped")
 
 
@@ -336,7 +336,7 @@ def create_simple_workflow_state_machine(
             name=state_name.replace("_", " ").title(),
             state_type=state_type
         ))
-        
+
     transition_objects = []
     for i, trans in enumerate(transitions):
         transition_objects.append(Transition(
@@ -345,7 +345,7 @@ def create_simple_workflow_state_machine(
             target_state=trans["to"],
             event=trans.get("event", "next")
         ))
-        
+
     return StateMachineDefinition(
         id=workflow_id,
         name=f"Workflow {workflow_id}",
@@ -358,13 +358,13 @@ def create_simple_workflow_state_machine(
 
 def create_approval_state_machine(workflow_id: str) -> StateMachineDefinition:
     """Create a state machine for approval workflows."""
-    
+
     def check_approval_needed(variables: Dict[str, Any], event: StateMachineEvent) -> bool:
         return variables.get("requires_approval", False)
-        
+
     def check_approved(variables: Dict[str, Any], event: StateMachineEvent) -> bool:
         return event.data.get("approved", False)
-        
+
     states = [
         State(id="initial", name="Initial", state_type=StateType.SIMPLE),
         State(id="processing", name="Processing", state_type=StateType.SIMPLE),
@@ -373,7 +373,7 @@ def create_approval_state_machine(workflow_id: str) -> StateMachineDefinition:
         State(id="rejected", name="Rejected", state_type=StateType.FINAL),
         State(id="completed", name="Completed", state_type=StateType.FINAL),
     ]
-    
+
     transitions = [
         Transition(
             id="start_processing",
@@ -416,7 +416,7 @@ def create_approval_state_machine(workflow_id: str) -> StateMachineDefinition:
             event="finalize"
         ),
     ]
-    
+
     return StateMachineDefinition(
         id=workflow_id,
         name="Approval Workflow",
@@ -440,7 +440,7 @@ def run_state_machine(definition: Union[dict, StateMachineDefinition], context: 
         )
     else:
         sm_def = definition
-        
+
     # For backward compatibility, just log and return success
     logger.info(f"Running state machine: {sm_def.id}")
     return {"status": "completed", "state_machine_id": sm_def.id}
