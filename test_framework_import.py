@@ -35,7 +35,10 @@ def test_basic_agent():
         return result
 
     result = asyncio.run(run_test())
-    return agent, result
+    # Assertions to validate behavior
+    assert isinstance(agent.id, str) and len(agent.id) > 0
+    assert isinstance(result, dict)
+    assert result.get("status") in ("completed", "ok", "success") or result.get("status")
 
 def test_id_generator():
     """Test professional ID generation."""
@@ -48,8 +51,7 @@ def test_id_generator():
     for format_type in formats:
         agent_id = generator.generate_id(format_type)
         print(f"✅ {format_type.upper()} ID: {agent_id}")
-
-    return generator
+        assert isinstance(agent_id, str) and len(agent_id) > 0
 
 def test_execution_context():
     """Test execution context functionality."""
@@ -65,7 +67,10 @@ def test_execution_context():
     print(f"✅ User ID: {context.user_id}")
     print(f"✅ Session ID: {context.session_id}")
 
-    return context
+    # Validate context attributes
+    assert context.agent_id == "test-agent-123"
+    assert context.user_id == "test-user"
+    assert context.session_id == "test-session"
 
 def main():
     """Run all framework tests."""
