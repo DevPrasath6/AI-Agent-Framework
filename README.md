@@ -1,7 +1,5 @@
 # AI Agent Framework
 
-One-line summary
------------------
 This repository contains a production-focused, backend-first AI Agent Framework: a platform for defining, orchestrating, executing, monitoring, and auditing agentic workflows (DAGs and state machines). It includes SDKs, integration adapters, observability, guardrails, and Intel DevCloud / OpenVINO deployment support.
 
 Table of contents
